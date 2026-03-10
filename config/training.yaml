@@ -1,0 +1,408 @@
+patch_size: 96
+batch_size: 16
+epochs: 800
+lr: 0.0001
+scheduler_step_epochs: 300
+validate_every: 50
+num_workers: 2
+train_preload: True
+val_preload: True
+
+models:
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_6_12
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 6
+#        nf: 12
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_2_48
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 48
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_2_52
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 52
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_4_52
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 52
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_4_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 64
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_16_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 16
+#        nf: 64
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_2_96
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 96
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_1_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 128
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_2_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 128
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_1_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 256
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_2_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 256
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_4_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 256
+#  - model:
+#      name: SR_EDSR
+#      checkpoint_name: SR_EDSR_2x_32_256_r
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 32
+#        nf: 256
+#        res_scaling: 0.1
+
+
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_1_48
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 48
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_2x_2_48
+      params:
+        upscale_factor: 2
+        num_blocks: 2
+        nf: 48
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_2_52
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 52
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_4_48
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 48
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_4_52
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 52
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_2x_2_16
+      params:
+        upscale_factor: 2
+        num_blocks: 2
+        nf: 16
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_4_16
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 16
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_6_48
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 6
+#        nf: 48
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_6_52
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 6
+#        nf: 52
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_1_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 64
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_2_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 64
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_6_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 6
+#        nf: 64
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_1_96
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 96
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_2_96
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 96
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_4_96
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 96
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_1_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 128
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_2_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 128
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_4_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 128
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_1_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 256
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_2_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 256
+#  - model:
+#      name: SR_RFDN
+#      checkpoint_name: SR_RFDN_2x_4_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 256
+#
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_1_48
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 48
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_2_48
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 48
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_4_16
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 16
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_5_16
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 5
+#        nf: 16
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_4_52
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 52
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_1_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 64
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_6_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 6
+#        nf: 64
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_1_96
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 96
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_2_96
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 96
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_1_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 128
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_2_128
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        nf: 128
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_1_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        nf: 256
+#  - model:
+#      name: SR_IMDN
+#      checkpoint_name: SR_IMDN_2x_4_256
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        nf: 256
+#
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b2_w0.5
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        width_mult: 0.5
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b2_w0.75
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        width_mult: 0.75
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b1_w1
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 1
+#        width_mult: 1
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b2_w1
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        width_mult: 1
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b3_w1
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 3
+#        width_mult: 1
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b4_w1
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 4
+#        width_mult: 1
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b2_w2
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        width_mult: 2
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b3_w2
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 3
+#        width_mult: 2
+#  - model:
+#      name: SR_CustomERN
+#      checkpoint_name: SR_CustomERN_2x_b2_w3
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 2
+#        width_mult: 3

@@ -1,0 +1,60 @@
+patch_size: 96
+batch_size: 16
+epochs: 800
+lr: 0.0001
+scheduler_step_epochs: 300
+validate_every: 50
+num_workers: 2
+train_preload: True
+val_preload: True
+
+models:
+  - model:
+      name: SR_EDSR
+      checkpoint_name: SR_EDSR_4x_6_12
+      params:
+        upscale_factor: 4
+        num_blocks: 6
+        nf: 12
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_4x_6_48
+      params:
+        upscale_factor: 4
+        num_blocks: 6
+        nf: 48
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_4x_6_52
+      params:
+        upscale_factor: 4
+        num_blocks: 6
+        nf: 52
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_4x_1_128
+      params:
+        upscale_factor: 4
+        num_blocks: 1
+        nf: 128
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_4x_2_128
+      params:
+        upscale_factor: 4
+        num_blocks: 2
+        nf: 128
+  - model:
+      name: SR_IMDN
+      checkpoint_name: SR_IMDN_4x_6_64
+      params:
+        upscale_factor: 4
+        num_blocks: 6
+        nf: 64
+  - model:
+      name: SR_CustomERN
+      checkpoint_name: SR_CustomERN_4x_b2_w2
+      params:
+        upscale_factor: 4
+        num_blocks: 2
+        width_mult: 2
