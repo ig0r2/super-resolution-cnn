@@ -21,7 +21,8 @@ class CCA(nn.Module):
 
     def forward(self, x):
         # mean i stdvar po (H, W): [B,C,H,W] -> [B,C,1,1]
-        std, mean = torch.std_mean(x, dim=(2, 3), keepdim=True, unbiased=False)
+        mean = torch.mean(x, dim=(2, 3), keepdim=True)
+        std = torch.std(x, dim=(2, 3), keepdim=True, unbiased=False)
         # channel attention
         attn = self.excitation(mean + std)
         return x * attn
@@ -61,13 +62,16 @@ class IMDB(nn.Module):
     def forward(self, x):
         # Destilacija 1
         out_c1 = self.act(self.c1(x))
-        distilled_c1, remaining_c1 = torch.split(out_c1, [self.distilled_ch, self.remaining_ch], dim=1)
+        distilled_c1 = out_c1[:, :self.distilled_ch, :, :]
+        remaining_c1 = out_c1[:, self.distilled_ch:, :, :]
         # Destilacija 2
         out_c2 = self.act(self.c2(remaining_c1))
-        distilled_c2, remaining_c2 = torch.split(out_c2, [self.distilled_ch, self.remaining_ch], dim=1)
+        distilled_c2 = out_c2[:, :self.distilled_ch, :, :]
+        remaining_c2 = out_c2[:, self.distilled_ch:, :, :]
         # Destilacija 3
         out_c3 = self.act(self.c3(remaining_c2))
-        distilled_c3, remaining_c3 = torch.split(out_c3, [self.distilled_ch, self.remaining_ch], dim=1)
+        distilled_c3 = out_c3[:, :self.distilled_ch, :, :]
+        remaining_c3 = out_c3[:, self.distilled_ch:, :, :]
         # Destilacija 4
         distilled_c4 = self.act(self.c4(remaining_c3))
         # spajamo sve destilovane izlaze

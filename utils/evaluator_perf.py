@@ -7,12 +7,14 @@ class EvaluatorPerf:
     Evaluacija brzine inferense. Kroz model se pusta random tenzor odredjen broj iteracija i racuna kao FPS
     """
 
-    def __init__(self, model, image_size=(720, 1280), warmup_runs=10, iterations=100, use_half=True):
+    def __init__(self, model, image_size=(720, 1280), warmup_runs=10, iterations=100, use_half=True,
+                 use_tensorrt=True):
         self.model = model
         self.input_size = (1, 3, image_size[0], image_size[1])
         self.warmup_runs = warmup_runs
         self.iterations = iterations
         self.use_half = use_half
+        self.use_tensorrt = use_tensorrt
 
     def evaluate(self):
         assert torch.cuda.is_available()
@@ -24,17 +26,33 @@ class EvaluatorPerf:
             torch.backends.cudnn.benchmark = True
             print("Using cuDNN benchmark mode")
 
-        self.model.eval()
-        self.model = torch.compile(self.model)
-        input_tensor = torch.randn(self.input_size, device=device)
+        input_tensor = torch.randn(self.input_size, device=device).detach()
 
         if self.use_half:
-            self.model = self.model.half()
+            self.model.half()
             input_tensor = input_tensor.half()
-            print(f"Using float16")
+            print(f"Using FP16")
         else:
-            print(f"Using float32")
+            print(f"Using FP32")
 
+        self.model.eval()
+
+        # Compile model
+        if self.use_tensorrt:
+            import torch_tensorrt
+            self.model = torch_tensorrt.compile(
+                self.model,
+                inputs=[torch_tensorrt.Input(
+                    self.input_size, dtype=torch.float16 if self.use_half else torch.float32)],
+                enabled_precisions={torch.float16} if self.use_half else {torch.float32})
+
+            # torch_tensorrt.save(self.model, "trt.pt2", arg_inputs=[input_tensor])
+        else:
+            self.model = torch.compile(self.model, mode="default")
+
+        _ = self.model(input_tensor)
+
+        # Inference
         print(f"Using input shape: {self.input_size}")
 
         with torch.no_grad():

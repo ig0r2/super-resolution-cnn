@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 from typing import Literal
 
@@ -20,6 +21,7 @@ if __name__ == "__main__":
     EVALUATE_METRICS = True
     EVALUATE_PERFORMANCE_720p = True
     EVALUATE_PERFORMANCE_480p = True
+    USE_TENSORRT = True
 
     CHECKPOINT_PATHS = [
         Path("checkpoints/SR_EDSR_2x_6_12_best.pth"),
@@ -146,10 +148,12 @@ if __name__ == "__main__":
             perf_results = {'FPS 720p': "", 'VRAM (MB) 720p': "", 'FPS 480p': "", 'VRAM (MB) 480p': ""}
             if EVALUATE_PERFORMANCE_720p and torch.cuda.is_available():
                 perf_results['FPS 720p'], perf_results['VRAM (MB) 720p'] = (
-                    EvaluatorPerf(model=model, image_size=(720, 1280), use_half=USE_HALF).evaluate())
+                    EvaluatorPerf(model=copy.deepcopy(model), image_size=(720, 1280), use_half=USE_HALF,
+                                  use_tensorrt=USE_TENSORRT).evaluate())
             if EVALUATE_PERFORMANCE_480p and torch.cuda.is_available():
                 perf_results['FPS 480p'], perf_results['VRAM (MB) 480p'] = (
-                    EvaluatorPerf(model=model, image_size=(480, 720), use_half=USE_HALF).evaluate())
+                    EvaluatorPerf(model=copy.deepcopy(model), image_size=(480, 854), use_half=USE_HALF,
+                                  use_tensorrt=USE_TENSORRT).evaluate())
 
             # Save to CSV
             save_to_csv({
