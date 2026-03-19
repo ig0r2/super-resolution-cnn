@@ -17,6 +17,41 @@ models:
         num_blocks: 6
         nf: 12
   - model:
+      name: SR_EDSR
+      checkpoint_name: SR_EDSR_4x_2_48
+      params:
+        upscale_factor: 4
+        num_blocks: 2
+        nf: 48
+  - model:
+      name: SR_EDSR
+      checkpoint_name: SR_EDSR_4x_4_48
+      params:
+        upscale_factor: 4
+        num_blocks: 4
+        nf: 48
+  - model:
+      name: SR_EDSR
+      checkpoint_name: SR_EDSR_4x_2_64
+      params:
+        upscale_factor: 4
+        num_blocks: 2
+        nf: 64
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_4x_2_48
+      params:
+        upscale_factor: 4
+        num_blocks: 2
+        nf: 48
+  - model:
+      name: SR_RFDN
+      checkpoint_name: SR_RFDN_4x_4_48
+      params:
+        upscale_factor: 4
+        num_blocks: 4
+        nf: 48
+  - model:
       name: SR_RFDN
       checkpoint_name: SR_RFDN_4x_6_48
       params:
@@ -44,6 +79,20 @@ models:
         upscale_factor: 4
         num_blocks: 2
         nf: 128
+  - model:
+      name: SR_IMDN
+      checkpoint_name: SR_IMDN_4x_2_48
+      params:
+        upscale_factor: 4
+        num_blocks: 2
+        nf: 48
+  - model:
+      name: SR_IMDN
+      checkpoint_name: SR_IMDN_4x_4_48
+      params:
+        upscale_factor: 4
+        num_blocks: 4
+        nf: 48
   - model:
       name: SR_IMDN
       checkpoint_name: SR_IMDN_4x_6_64
