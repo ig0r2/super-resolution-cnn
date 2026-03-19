@@ -10,6 +10,10 @@ if __name__ == "__main__":
     CROP_BOX = (1010, 730, 64, 64)  # (x, y, w, h)
     LR_PATH = 'data/DIV2K/DIV2K_valid_LR_bicubic/X2/0879x2.png'
     HR_PATH = 'data/DIV2K/DIV2K_valid_HR/0879.png'
+    #
+    # CROP_BOX = (1180, 580, 150, 150)  # (x, y, w, h)
+    # LR_PATH = 'data/DIV2K/DIV2K_valid_LR_bicubic/X2/0887x2.png'
+    # HR_PATH = 'data/DIV2K/DIV2K_valid_HR/0887.png'
 
     # CROP_BOX = (744, 936, 96, 96)  # (x, y, w, h)
     # LR_PATH = 'data/DIV2K/DIV2K_valid_LR_bicubic/X2/0873x2.png'

@@ -33,7 +33,7 @@ class Evaluator:
         if use_half is not None: self.use_half = use_half
 
         if self.use_half:
-            self.model = self.model.half()
+            self.model.half()
         return self
 
     def evaluate(self):

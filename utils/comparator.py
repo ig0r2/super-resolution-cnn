@@ -10,6 +10,7 @@ from torchvision.transforms import v2
 from models import RegularModel
 from utils.checkpoints import load_model_from_checkpoint
 from utils.metrics import SSIM, PSNR
+from utils.model_utils import tile_forward
 
 
 def get_unique_path(path):
@@ -52,7 +53,8 @@ class ImageComparison:
         model, checkpoint = load_model_from_checkpoint(checkpoint_path, self.device)
         model.eval()
         with torch.no_grad():
-            output = model(self.lr_image_fp).clip(0, 1).mul(255).round()
+            # output = model(self.lr_image_fp).clip(0, 1).mul(255).round()
+            output = tile_forward(model, self.upscale_factor, self.lr_image_fp).clip(0, 1).mul(255).round()
 
         ssim = self.ssim(output, self.hr_image)
         psnr = self.psnr(output, self.hr_image)
