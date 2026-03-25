@@ -3,6 +3,8 @@ logs/
 checkpoints/
 inference/
 #results/
+exports/
+videoinput/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
