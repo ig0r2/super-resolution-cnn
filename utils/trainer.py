@@ -126,8 +126,8 @@ class Trainer:
         self.history = checkpoint['history']
         print(f"Resumed from epoch {checkpoint['epoch']}")
 
-    def save_checkpoint(self, type):
-        path = f"checkpoints/{self.config['model']['checkpoint_name']}_{type}.pth"
+    def save_checkpoint(self, type=""):
+        path = f"checkpoints/{self.config['model']['checkpoint_name']}{type}.pth"
         torch.save({
             'epoch': self.epoch,
             'best_val_ssim': self.best_val_ssim,
@@ -150,8 +150,8 @@ class Trainer:
                 val_ssim = self.validate()
                 if val_ssim > self.best_val_ssim:
                     self.best_val_ssim = val_ssim
-                    self.save_checkpoint('best')
-                self.save_checkpoint('latest')
+                    self.save_checkpoint()
+                self.save_checkpoint('_latest')
 
             self.epoch += 1
 

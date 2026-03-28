@@ -34,28 +34,28 @@ if __name__ == "__main__":
     UPSCALE_FACTOR = 2
     METHODS = ['nearest', 'bilinear', 'bicubic', 'lanczos']
     CHECKPOINT_PATHS = [
-        Path("checkpoints/SR_EDSR_2x_32_256_r_best.pth"),
-        Path("checkpoints/SR_EDSR_2x_16_64_best.pth"),
-        Path("checkpoints/SR_EDSR_2x_2_48_best.pth"),
-        Path("checkpoints/SR_RFDN_2x_4_256_best.pth"),
-        Path("checkpoints/SR_RFDN_2x_4_128_best.pth"),
-        Path("checkpoints/SR_RFDN_2x_1_128_best.pth"),
-        Path("checkpoints/SR_RFDN_2x_4_52_best.pth"),
-        Path("checkpoints/SR_RFDN_2x_2_48_best.pth"),
-        Path("checkpoints/SR_IMDN_2x_4_52_best.pth"),
-        Path("checkpoints/SR_CustomERN_2x_b2_w3_best.pth"),
-        Path("checkpoints/SR_CustomERN_2x_b2_w2_best.pth"),
-        Path("checkpoints/SR_CustomERN_2x_b2_w1_best.pth"),
-        Path("checkpoints/SR_CustomERN_2x_b2_w0.5_best.pth"),
+        Path("checkpoints/SR_EDSR_2x_32_256_r.pth"),
+        Path("checkpoints/SR_EDSR_2x_16_64.pth"),
+        Path("checkpoints/SR_EDSR_2x_2_48.pth"),
+        Path("checkpoints/SR_RFDN_2x_4_256.pth"),
+        Path("checkpoints/SR_RFDN_2x_4_128.pth"),
+        Path("checkpoints/SR_RFDN_2x_1_128.pth"),
+        Path("checkpoints/SR_RFDN_2x_4_52.pth"),
+        Path("checkpoints/SR_RFDN_2x_2_48.pth"),
+        Path("checkpoints/SR_IMDN_2x_4_52.pth"),
+        Path("checkpoints/SR_CustomERN_2x_b2_w3.pth"),
+        Path("checkpoints/SR_CustomERN_2x_b2_w2.pth"),
+        Path("checkpoints/SR_CustomERN_2x_b2_w1.pth"),
+        Path("checkpoints/SR_CustomERN_2x_b2_w0.5.pth"),
     ]
     # CHECKPOINT_PATHS = [
-    #     Path("checkpoints/SR_EDSR_4x_6_12_best.pth"),
-    #     Path("checkpoints/SR_RFDN_4x_6_48_best.pth"),
-    #     Path("checkpoints/SR_RFDN_4x_1_128_best.pth"),
-    #     Path("checkpoints/SR_RFDN_4x_2_128_best.pth"),
-    #     Path("checkpoints/SR_RFDN_4x_6_52_best.pth"),
-    #     Path("checkpoints/SR_IMDN_4x_6_64_best.pth"),
-    #     Path("checkpoints/SR_CustomERN_4x_b2_w2_best.pth"),
+    #     Path("checkpoints/SR_EDSR_4x_6_12.pth"),
+    #     Path("checkpoints/SR_RFDN_4x_6_48.pth"),
+    #     Path("checkpoints/SR_RFDN_4x_1_128.pth"),
+    #     Path("checkpoints/SR_RFDN_4x_2_128.pth"),
+    #     Path("checkpoints/SR_RFDN_4x_6_52.pth"),
+    #     Path("checkpoints/SR_IMDN_4x_6_64.pth"),
+    #     Path("checkpoints/SR_CustomERN_4x_b2_w2.pth"),
     # ]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

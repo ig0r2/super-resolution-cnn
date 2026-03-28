@@ -11,7 +11,7 @@ from utils.model_utils import tile_forward
 
 # Inferenca svih slika iz inference/input foldera za izabrani checkpoint ili metod
 
-CHECKPOINT_PATH: Path = Path("checkpoints/SR_RFDN_2x_2_64_best.pth")
+CHECKPOINT_PATH: Path = Path("checkpoints/SR_RFDN_2x_2_64.pth")
 
 USE_METHOD = False
 METHOD: Literal['nearest', 'bilinear', 'bicubic', 'lanczos'] = "bicubic"
