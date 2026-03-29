@@ -24,12 +24,19 @@ def _compute_coords(tile_size, overlap, h, w, scale):
 class TileProcessor:
     """Sadrzi logiku za ineferencu preko delova - preko numpy (za onnxruntime)"""
 
-    def __init__(self, h, w, c, upscale_factor, tile_size=256, overlap=8):
-        self.coords = _compute_coords(tile_size, overlap, h, w, upscale_factor)
+    def __init__(self, upscale_factor, tile_size=256, overlap=8):
+        self.initialized = False
+        self.upscale_factor = upscale_factor
+        self.tile_size = tile_size
+        self.overlap = overlap
+
+    def init(self, frame):
+        h, w, c = frame.shape
+        self.coords = _compute_coords(self.tile_size, self.overlap, h, w, self.upscale_factor)
 
         # Preallocate buffers
-        scaled_h = h * upscale_factor
-        scaled_w = w * upscale_factor
+        scaled_h = h * self.upscale_factor
+        scaled_w = w * self.upscale_factor
         # Accumulation buffers (float32 for precision during averaging)
         self.output_acc = np.zeros((scaled_h, scaled_w, c), dtype=np.float32)
         self.count_acc = np.zeros((scaled_h, scaled_w, 1), dtype=np.uint8)
@@ -47,7 +54,12 @@ class TileProcessor:
         Returns:
             Upscaled image (H*scale, W*scale, C) as uint8
         """
-        # Reset accumulators
+        # If first pass, allocate buffers
+        if not self.initialized:
+            self.init(frame)
+            self.initialized = True
+
+        # Reset buffers
         self.output_acc.fill(0.0)
         self.count_acc.fill(0)
 
@@ -71,19 +83,26 @@ class TileProcessor:
 class TileProcessorTorch:
     """Sadrzi logiku za ineferencu preko delova - preko torch (za tensorrt)"""
 
-    def __init__(self, h, w, c, upscale_factor, tile_size=256, overlap=8):
-        self.coords = _compute_coords(tile_size, overlap, h, w, upscale_factor)
+    def __init__(self, upscale_factor, tile_size=256, overlap=8):
+        self.initialized = False
+        self.upscale_factor = upscale_factor
+        self.tile_size = tile_size
+        self.overlap = overlap
 
-        # Preallocate buffers
-        scaled_h = h * upscale_factor
-        scaled_w = w * upscale_factor
-        # Accumulation buffers (float32 for precision during averaging)
+    def init(self, frame):
+        h, w, c = frame.shape
+        self.coords = _compute_coords(self.tile_size, self.overlap, h, w, self.upscale_factor)
+        scaled_h = h * self.upscale_factor
+        scaled_w = w * self.upscale_factor
         self.output_acc = torch.zeros((scaled_h, scaled_w, c), dtype=torch.float16, device="cuda")
         self.count_acc = torch.zeros((scaled_h, scaled_w, 1), dtype=torch.float16, device="cuda")
-        # Final output buffer (uint8)
         self.result = torch.empty((scaled_h, scaled_w, c), dtype=torch.uint8, device="cuda")
 
     def process_frame(self, frame, infer_fn):
+        if not self.initialized:
+            self.init(frame)
+            self.initialized = True
+
         self.output_acc.zero_()
         self.count_acc.zero_()
 

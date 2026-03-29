@@ -1,59 +1,63 @@
-import time
-from collections import deque
 from pathlib import Path
-import cv2
 import torch
 import torch_tensorrt
-
+from utils.checkpoints import load_model_from_checkpoint
+from utils.video.evaluator_perf_video import VideoWrapperCV2
+from utils.video.export import export_trt
 from utils.video.model_utils import TileProcessorTorch
-from utils.video.videostream import VideoStream
+from utils.video.videoplayer import VideoPlayer
 
-MODEL_PATH = Path("exports/SR_Tiny_Res_2x_4_64_480x854_cv2.pt2")
+MODEL = "SR_RFDN_2x_2_128"
 VIDEO_PATH = Path("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
+INPUT_SIZE = (480, 854)
 TILED = False
-TILE_SIZE = 128
+TILE_SIZE = 256
 
 ################################################
 
-model = torch.export.load(MODEL_PATH).module()
+if TILED:
+    INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
+
+model_path = Path(f"exports/trt/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_cv2.pt2")
+
+# Export if needed
+if not model_path.exists():
+    print(f"Model export for input size {INPUT_SIZE[0]}x{INPUT_SIZE[1]} doesnt exist")
+    print("Compiling and Exporting...")
+
+    checkpoint_path = Path(f"checkpoints/{MODEL}.pth")
+    if not checkpoint_path.exists():
+        print(f"Checkpoint for {MODEL} doesnt exit")
+        exit()
+    model, _ = load_model_from_checkpoint(checkpoint_path, "cpu")
+    model.half()
+
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    export_trt(VideoWrapperCV2(model), model_path, (INPUT_SIZE[0], INPUT_SIZE[1], 3))
+
+# Load model
+model = torch.export.load(model_path).module().cuda()
 
 
+# Define callback for model inference
 def infer(tile):
     return model(tile)
 
 
-stream = VideoStream(VIDEO_PATH).start()
-h, w = stream.frame_size
+# Define callback for upscaling the frame
+if TILED:
+    tile_processor = TileProcessorTorch(upscale_factor=UPSCALE_FACTOR, tile_size=TILE_SIZE, overlap=8)
 
-tile_processor = TileProcessorTorch(h=h, w=w, c=3, upscale_factor=UPSCALE_FACTOR, tile_size=TILE_SIZE, overlap=8)
 
-frame_times = deque(maxlen=20)  # for FPS avg calculation
+    def upscale(frame):
+        frame_gpu = torch.from_numpy(frame).half().cuda()
+        return tile_processor.process_frame(frame_gpu, infer).cpu().numpy()
 
-while stream.running:
-    t0 = time.perf_counter()
-    try:
-        frame = stream.read()
-    except:
-        break
+else:
+    def upscale(frame):
+        frame_gpu = torch.from_numpy(frame).half().cuda()
+        return infer(frame_gpu).cpu().numpy()
 
-    frame_gpu = torch.from_numpy(frame).half().cuda()
-    output = tile_processor.process_frame(frame_gpu, infer) if TILED else infer(frame_gpu)
-    output = output.cpu().numpy()
-
-    frame_time_ms = (time.perf_counter() - t0) * 1000
-    frame_times.append(frame_time_ms)
-    avg_fps = 1000.0 / (sum(frame_times) / len(frame_times))
-
-    print(f"{frame_time_ms:.2f} ms | {avg_fps:.1f} FPS")
-
-    cv2.putText(output, f"{avg_fps:.1f} FPS", (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-    cv2.imshow("SR Video", output)
-    cv2.imshow("Original Video", frame)
-
-    if cv2.waitKey(1) & 0xFF == 27:
-        break
-
-cv2.destroyAllWindows()
+# Start VideoPlayer
+VideoPlayer(video_path=VIDEO_PATH, upscale_fn=upscale).play()

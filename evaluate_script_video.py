@@ -124,26 +124,24 @@ if __name__ == "__main__":
                             '480p (256x256)': ""}
             perf_results['720p'] = (
                 EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280),
-                                   runtype=RUNTYPE).evaluate())
+                                   upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
             perf_results['480p'] = (
                 EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854),
-                                   runtype=RUNTYPE).evaluate())
+                                   upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
             perf_results['720p (128x128)'] = (
                 EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280), tiled=True,
-                                   tile_size=128,
-                                   runtype=RUNTYPE).evaluate())
+                                   tile_size=128, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
             perf_results['480p (128x128)'] = (
                 EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854), tiled=True,
-                                   tile_size=128,
-                                   runtype=RUNTYPE, dont_export=True).evaluate())
+                                   tile_size=128, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE,
+                                   dont_export=True).evaluate())
             perf_results['720p (256x256)'] = (
                 EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280), tiled=True,
-                                   tile_size=256,
-                                   runtype=RUNTYPE).evaluate())
+                                   tile_size=256, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
             perf_results['480p (256x256)'] = (
                 EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854), tiled=True,
-                                   tile_size=256,
-                                   runtype=RUNTYPE, dont_export=True).evaluate())
+                                   tile_size=256, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE,
+                                   dont_export=True).evaluate())
 
             # Save to CSV
             save_to_csv({
