@@ -17,5 +17,6 @@ def get_model(model_config):
 from .rfdn.model import SR_RFDN
 from .imdn.model import SR_IMDN
 from .edsr.model import SR_EDSR
+from .edsr.fast_edsr import SR_FastEDSR
 from .custom.ern import SR_CustomERN
 from .regular_models import RegularModel
