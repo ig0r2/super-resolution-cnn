@@ -1,8 +1,8 @@
 logs/
 .idea/
+data/
 checkpoints/
 inference/
-#results/
 exports/
 videoinput/
 

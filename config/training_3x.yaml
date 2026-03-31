@@ -11,221 +11,221 @@ val_preload: True
 models:
   - model:
       name: SR_EDSR
-      checkpoint_name: SR_EDSR_4x_6_12
+      checkpoint_name: SR_EDSR_3x_6_12
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 6
         nf: 12
   - model:
       name: SR_EDSR
-      checkpoint_name: SR_EDSR_4x_2_48
+      checkpoint_name: SR_EDSR_3x_2_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 48
   - model:
       name: SR_EDSR
-      checkpoint_name: SR_EDSR_4x_4_48
+      checkpoint_name: SR_EDSR_3x_4_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 48
   - model:
       name: SR_EDSR
-      checkpoint_name: SR_EDSR_4x_2_64
+      checkpoint_name: SR_EDSR_3x_2_64
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 64
 
   - model:
       name: SR_RFDN
-      checkpoint_name: SR_RFDN_4x_2_48
+      checkpoint_name: SR_RFDN_3x_2_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 48
   - model:
       name: SR_RFDN
-      checkpoint_name: SR_RFDN_4x_4_48
+      checkpoint_name: SR_RFDN_3x_4_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 48
   - model:
       name: SR_RFDN
-      checkpoint_name: SR_RFDN_4x_6_48
+      checkpoint_name: SR_RFDN_3x_6_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 6
         nf: 48
   - model:
       name: SR_RFDN
-      checkpoint_name: SR_RFDN_4x_6_52
+      checkpoint_name: SR_RFDN_3x_6_52
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 6
         nf: 52
   - model:
       name: SR_RFDN
-      checkpoint_name: SR_RFDN_4x_1_128
+      checkpoint_name: SR_RFDN_3x_1_128
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 128
   - model:
       name: SR_RFDN
-      checkpoint_name: SR_RFDN_4x_2_128
+      checkpoint_name: SR_RFDN_3x_2_128
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 128
 
   - model:
       name: SR_IMDN
-      checkpoint_name: SR_IMDN_4x_2_48
+      checkpoint_name: SR_IMDN_3x_2_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 48
   - model:
       name: SR_IMDN
-      checkpoint_name: SR_IMDN_4x_4_48
+      checkpoint_name: SR_IMDN_3x_4_48
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 48
   - model:
       name: SR_IMDN
-      checkpoint_name: SR_IMDN_4x_6_64
+      checkpoint_name: SR_IMDN_3x_6_64
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 6
         nf: 64
 
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_1_4
+      checkpoint_name: SR_FastEDSR_3x_1_4
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 4
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_1_8
+      checkpoint_name: SR_FastEDSR_3x_1_8
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 8
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_1_16
+      checkpoint_name: SR_FastEDSR_3x_1_16
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 16
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_1_32
+      checkpoint_name: SR_FastEDSR_3x_1_32
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 32
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_1_64
+      checkpoint_name: SR_FastEDSR_3x_1_64
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 64
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_1_128
+      checkpoint_name: SR_FastEDSR_3x_1_128
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 1
         nf: 128
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_2_4
+      checkpoint_name: SR_FastEDSR_3x_2_4
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 4
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_2_8
+      checkpoint_name: SR_FastEDSR_3x_2_8
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 8
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_2_16
+      checkpoint_name: SR_FastEDSR_3x_2_16
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 16
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_2_32
+      checkpoint_name: SR_FastEDSR_3x_2_32
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 32
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_2_64
+      checkpoint_name: SR_FastEDSR_3x_2_64
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 64
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_2_128
+      checkpoint_name: SR_FastEDSR_3x_2_128
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 2
         nf: 128
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_4_8
+      checkpoint_name: SR_FastEDSR_3x_4_8
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 8
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_4_16
+      checkpoint_name: SR_FastEDSR_3x_4_16
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 16
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_4_32
+      checkpoint_name: SR_FastEDSR_3x_4_32
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 32
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_4_64
+      checkpoint_name: SR_FastEDSR_3x_4_64
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 64
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_4_128
+      checkpoint_name: SR_FastEDSR_3x_4_128
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 4
         nf: 128
   - model:
       name: SR_FastEDSR
-      checkpoint_name: SR_FastEDSR_4x_8_16
+      checkpoint_name: SR_FastEDSR_3x_8_16
       params:
-        upscale_factor: 4
+        upscale_factor: 3
         num_blocks: 8
         nf: 16
