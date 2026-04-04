@@ -81,9 +81,9 @@ class IMDB(nn.Module):
 
 
 class UpscaleBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, upscale_factor):
+    def __init__(self, in_ch, upscale_factor):
         super().__init__()
-        self.conv = nn.Conv2d(in_ch, out_ch * (upscale_factor ** 2), kernel_size=3, padding=1)
+        self.conv = nn.Conv2d(in_ch, 3 * (upscale_factor ** 2), kernel_size=3, padding=1)
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
 
     def forward(self, x):
@@ -118,12 +118,12 @@ class SR_IMDN(nn.Module):
         # Rekonstrukcija u feature prostoru + skip
         self.LR_conv = nn.Conv2d(nf, nf, kernel_size=3, padding=1)
         # Pixel shuffle blok za kraj (izlaz 3 kanala)
-        self.upscaler = UpscaleBlock(nf, 3, upscale_factor)
+        self.upscaler = UpscaleBlock(nf, upscale_factor)
 
     def forward(self, x):
         out_fea = self.fea_conv(x)
-        out = out_fea.clone()
 
+        out = out_fea
         out_blocks = []
         for block in self.blocks:
             out = block(out)
@@ -135,3 +135,47 @@ class SR_IMDN(nn.Module):
         out_lr = self.LR_conv(out_B) + out_fea
 
         return self.upscaler(out_lr)
+
+
+@register_model
+class SR_IMDN_Multi(nn.Module):
+    def __init__(self, num_blocks=6, nf=64, upscale_factor=2):
+        super().__init__()
+
+        self.upscale_factor = upscale_factor
+
+        self.fea_conv = nn.Conv2d(3, nf, kernel_size=3, padding=1)
+
+        self.blocks = nn.ModuleList([IMDB(in_ch=nf) for _ in range(num_blocks)])
+
+        self.conv = nn.Conv2d(nf * num_blocks, nf, kernel_size=1)
+        self.lrelu = nn.LeakyReLU(0.05, inplace=True)
+
+        self.LR_conv = nn.Conv2d(nf, nf, kernel_size=3, padding=1)
+
+        self.upscalers = nn.ModuleDict({
+            "2": UpscaleBlock(in_ch=nf, upscale_factor=2),
+            "3": UpscaleBlock(in_ch=nf, upscale_factor=3),
+            "4": UpscaleBlock(in_ch=nf, upscale_factor=4),
+        })
+
+    def forward(self, x, upscale_factor=None):
+        if upscale_factor is None:
+            upscale_factor = self.upscale_factor
+
+        out_fea = self.fea_conv(x)
+
+        out = out_fea
+        out_blocks = []
+        for block in self.blocks:
+            out = block(out)
+            out_blocks.append(out)
+
+        out_B = self.lrelu(self.conv(torch.cat(out_blocks, dim=1)))
+        out_lr = self.LR_conv(out_B) + out_fea
+
+        key = str(upscale_factor)
+        if key not in self.upscalers:
+            raise ValueError(f"Scale {upscale_factor} not supported.")
+
+        return self.upscalers[key](out_lr)

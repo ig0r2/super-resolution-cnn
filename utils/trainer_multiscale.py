@@ -4,13 +4,15 @@ from os.path import exists
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
+
+from datasets import get_test_set, get_training_set_multi, multiscale_train_collate_fn
+from datasets.data import get_div2k_test_set_multi
 from utils.metrics import SSIM
 from utils.model_utils import tile_forward
 from utils.plot import plot_training_history
-from datasets import get_training_set, get_test_set, TrainCollateFn
 
 
-class Trainer:
+class TrainerMultiscale:
     def __init__(self, config, device):
         self.model = None
         self.optimizer = None
@@ -19,18 +21,15 @@ class Trainer:
         self.device = device
         self.config = config
 
-        self.upscale_factor = config['models'][0]['model']['params']['upscale_factor']
-
         self.train_loader = DataLoader(
-            dataset=get_training_set(upscale_factor=self.upscale_factor, patch_size=config['patch_size'],
-                                     preload=config['train_preload']),
-            collate_fn=TrainCollateFn(self.upscale_factor), num_workers=config['num_workers'],
-            batch_size=config['batch_size'], shuffle=True, persistent_workers=True, pin_memory=True
+            dataset=get_training_set_multi(patch_size=config['patch_size'], preload=config['train_preload']),
+            num_workers=config['num_workers'], batch_size=config['batch_size'],
+            collate_fn=multiscale_train_collate_fn, shuffle=True, persistent_workers=True, pin_memory=True
         )
         self.val_loader = DataLoader(
-            dataset=get_test_set(name="DIV2K", upscale_factor=self.upscale_factor, preload=config['val_preload']),
+            dataset=get_div2k_test_set_multi(preload=config['val_preload'], normalize=True),
             num_workers=1, batch_size=1, persistent_workers=True, pin_memory=True
-        )  # validacija batch_size 1 zato sto su slike razlicitih velicina
+        )
 
         self.epoch = 1
         self.epochs = config['epochs']
@@ -57,11 +56,11 @@ class Trainer:
         epoch_loss = 0
         self.model.train()
         pbar = tqdm(self.train_loader, desc=f'Epoch [{self.epoch}/{self.epochs}]', file=sys.stdout)
-        for iteration, (input, target) in enumerate(pbar, 1):
+        for iteration, (input, target, scale) in enumerate(pbar, 1):
             input, target = input.to(self.device, non_blocking=True), target.to(self.device, non_blocking=True)
 
             self.optimizer.zero_grad()
-            loss = self.criterion(self.model(input), target)
+            loss = self.criterion(self.model(input, scale), target)
             epoch_loss += loss.item()
             loss.backward()
             self.optimizer.step()
@@ -80,11 +79,24 @@ class Trainer:
 
         with torch.no_grad():
             pbar = tqdm(self.val_loader, desc=f'Validation', file=sys.stdout)
-            for iteration, (input, target) in enumerate(pbar, 1):
-                input, target = input.to(self.device, non_blocking=True), target.to(self.device, non_blocking=True)
+            for iteration, (lr_2, lr_3, lr_4, target) in enumerate(pbar, 1):
+                lr_2 = lr_2.to(self.device, non_blocking=True)
+                lr_3 = lr_3.to(self.device, non_blocking=True)
+                lr_4 = lr_4.to(self.device, non_blocking=True)
+                target = target.to(self.device, non_blocking=True)
 
-                output = tile_forward(self.model, self.upscale_factor, input, tile_size=256, overlap=8)
-                # output = self.model(input)
+                self.model.upscale_factor = 2
+                output = tile_forward(self.model, 2, lr_2, tile_size=256, overlap=8)
+                val_loss += self.criterion(output, target).item()
+                self.metrics_ssim.update(output, target)
+
+                self.model.upscale_factor = 3
+                output = tile_forward(self.model, 3, lr_3, tile_size=256, overlap=8)
+                val_loss += self.criterion(output, target).item()
+                self.metrics_ssim.update(output, target)
+
+                self.model.upscale_factor = 4
+                output = tile_forward(self.model, 4, lr_4, tile_size=256, overlap=8)
                 val_loss += self.criterion(output, target).item()
                 self.metrics_ssim.update(output, target)
 
@@ -92,7 +104,7 @@ class Trainer:
 
         self.history['validation'].append({
             'epoch': self.epoch,
-            'loss': val_loss / len(self.val_loader),
+            'loss': val_loss / len(self.val_loader) * 3,
             'ssim': self.metrics_ssim.compute().item()
         })
 
@@ -126,6 +138,7 @@ class Trainer:
         print(f"Checkpoint saved to {path}")
 
     def train(self):
+        print(f"Training model {self.config['model']['checkpoint_name']}")
         self.load_checkpoint()
 
         while self.epoch <= self.epochs:

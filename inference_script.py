@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 
 import torch
-from torchvision.io import read_image
+from torchvision.io import decode_image
 from torchvision.utils import save_image
 
 from models import RegularModel
@@ -11,7 +11,7 @@ from utils.model_utils import tile_forward
 
 # Inferenca svih slika iz inference/input foldera za izabrani checkpoint ili metod
 
-CHECKPOINT_PATH: Path = Path("checkpoints/SR_RFDN_2x_2_64.pth")
+CHECKPOINT_PATH: Path = Path("checkpoints/SR_FastEDSR_4_128.pth")
 
 USE_METHOD = False
 METHOD: Literal['nearest', 'bilinear', 'bicubic', 'lanczos'] = "bicubic"
@@ -36,12 +36,13 @@ if USE_METHOD:
     model = RegularModel(METHOD, UPSCALE_FACTOR)
 else:
     model, _ = load_model_from_checkpoint(CHECKPOINT_PATH, device)
+    model.upscale_factor = UPSCALE_FACTOR
 
 model.eval()
 
 for input_path in INPUT_DIR.iterdir():
     if not input_path.is_file(): continue
-    input_tensor = read_image(str(input_path)).unsqueeze(0).float().div_(255.0).to(device)
+    input_tensor = decode_image(str(input_path)).unsqueeze(0).float().div_(255.0).to(device)
 
     with torch.no_grad():
         # output = model(input_tensor)

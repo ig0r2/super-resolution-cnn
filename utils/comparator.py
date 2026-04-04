@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import torch
-from torchvision.io import read_image
+from torchvision.io import decode_image
 from torchvision.transforms import v2
 
 from models import RegularModel
@@ -27,8 +27,8 @@ class ImageComparison:
         self.device = device
         self.upscale_factor = upscale_factor
         self.img_name = Path(lr_path).stem
-        self.lr_image_fp = read_image(str(lr_path)).unsqueeze(0).float().div(255).to(self.device)
-        self.hr_image = read_image(str(hr_path)).unsqueeze(0).float().to(self.device)
+        self.lr_image_fp = decode_image(str(lr_path)).unsqueeze(0).float().div(255).to(self.device)
+        self.hr_image = decode_image(str(hr_path)).unsqueeze(0).float().to(self.device)
         self.ssim = SSIM(device=device, data_range=255.0)
         self.psnr = PSNR(device=device, data_range=255.0)
 
@@ -51,6 +51,7 @@ class ImageComparison:
     def proccess_checkpoint(self, checkpoint_path):
         checkpoint_path = Path(checkpoint_path)
         model, checkpoint = load_model_from_checkpoint(checkpoint_path, self.device)
+        model.upscale_factor = self.upscale_factor
         model.eval()
         with torch.no_grad():
             # output = model(self.lr_image_fp).clip(0, 1).mul(255).round()

@@ -14,8 +14,8 @@ def get_model(model_config):
     return MODEL_REGISTRY[model_config['name']](**model_config['params'])
 
 
-from .rfdn.model import SR_RFDN
-from .imdn.model import SR_IMDN
-from .edsr.model import SR_EDSR
-from .edsr.fast_edsr import SR_FastEDSR
+from .rfdn.model import SR_RFDN, SR_RFDN_Multi
+from .imdn.model import SR_IMDN, SR_IMDN_Multi
+from .edsr.model import SR_EDSR, SR_EDSR_Multi
+from .edsr.fast_edsr import SR_FastEDSR, SR_FastEDSR_Multi
 from .regular_models import RegularModel

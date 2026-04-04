@@ -36,13 +36,13 @@ if __name__ == "__main__":
         Path("checkpoints/SR_RFDN_2x_4_256.pth"),
         Path("checkpoints/SR_RFDN_2x_4_128.pth"),
         Path("checkpoints/SR_RFDN_2x_1_128.pth"),
-        Path("checkpoints/SR_RFDN_2x_2_48.pth"),
+        Path("checkpoints/SR_RFDN_2_48.pth"),
         Path("checkpoints/SR_IMDN_2x_4_52.pth"),
-        Path("checkpoints/SR_FastEDSR_2x_2_8.pth"),
-        Path("checkpoints/SR_FastEDSR_2x_2_16.pth"),
-        Path("checkpoints/SR_FastEDSR_2x_2_64.pth"),
-        Path("checkpoints/SR_FastEDSR_2x_4_64.pth"),
-        Path("checkpoints/SR_FastEDSR_2x_4_128.pth"),
+        Path("checkpoints/SR_FastEDSR_2_8.pth"),
+        Path("checkpoints/SR_FastEDSR_2_16.pth"),
+        Path("checkpoints/SR_FastEDSR_2_64.pth"),
+        Path("checkpoints/SR_FastEDSR_4_64.pth"),
+        Path("checkpoints/SR_FastEDSR_4_128.pth"),
     ]
 
     # UPSCALE_FACTOR = 3

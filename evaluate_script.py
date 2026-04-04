@@ -24,6 +24,26 @@ if __name__ == "__main__":
     USE_TENSORRT = True
 
     CHECKPOINT_PATHS = [
+        Path("checkpoints/SR_EDSR_2_52.pth"),
+        Path("checkpoints/SR_EDSR_4_52.pth"),
+        Path("checkpoints/SR_RFDN_2_48.pth"),
+        Path("checkpoints/SR_RFDN_4_48.pth"),
+        Path("checkpoints/SR_RFDN_4_16.pth"),
+        Path("checkpoints/SR_RFDN_2_96.pth"),
+        Path("checkpoints/SR_IMDN_2_48.pth"),
+        Path("checkpoints/SR_IMDN_2_96.pth"),
+        Path("checkpoints/SR_FastEDSR_2_4.pth"),
+        Path("checkpoints/SR_FastEDSR_2_8.pth"),
+        Path("checkpoints/SR_FastEDSR_2_16.pth"),
+        Path("checkpoints/SR_FastEDSR_2_32.pth"),
+        Path("checkpoints/SR_FastEDSR_2_64.pth"),
+        Path("checkpoints/SR_FastEDSR_2_128.pth"),
+        Path("checkpoints/SR_FastEDSR_4_8.pth"),
+        Path("checkpoints/SR_FastEDSR_4_16.pth"),
+        Path("checkpoints/SR_FastEDSR_4_32.pth"),
+        Path("checkpoints/SR_FastEDSR_4_64.pth"),
+        Path("checkpoints/SR_FastEDSR_4_128.pth"),
+
         # Path("checkpoints/SR_EDSR_2x_1_32.pth"),
         # Path("checkpoints/SR_EDSR_2x_1_128.pth"),
         # Path("checkpoints/SR_EDSR_2x_1_256.pth"),
@@ -196,6 +216,7 @@ if __name__ == "__main__":
                 model = RegularModel(item['method'], UPSCALE_FACTOR)
             else:
                 model, _ = load_model_from_checkpoint(checkpoint_path, device)
+                model.upscale_factor = UPSCALE_FACTOR
 
             # Evaluation
             eval_results = {'LPIPS': "", 'SSIM': "", 'PSNR': "", 'Loss': ""}
