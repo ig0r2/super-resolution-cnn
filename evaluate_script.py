@@ -15,34 +15,42 @@ from utils.logger import Logger
 # Evaluacija modela i/ili metoda
 
 if __name__ == "__main__":
-    UPSCALE_FACTOR: Literal[2, 3, 4] = 2
+    UPSCALE_FACTOR: Literal[2, 3, 4] = 4
     TEST_SET: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"] = "DIV2K"
+
     USE_HALF = True
     EVALUATE_METRICS = True
-    EVALUATE_PERFORMANCE_720p = True
-    EVALUATE_PERFORMANCE_480p = True
+    JPEG_DEGRADATION = True
+
+    EVALUATE_PERFORMANCE_720p = False
+    EVALUATE_PERFORMANCE_480p = False
     USE_TENSORRT = True
 
     CHECKPOINT_PATHS = [
-        Path("checkpoints/SR_EDSR_2_52.pth"),
-        Path("checkpoints/SR_EDSR_4_52.pth"),
-        Path("checkpoints/SR_RFDN_2_48.pth"),
-        Path("checkpoints/SR_RFDN_4_48.pth"),
-        Path("checkpoints/SR_RFDN_4_16.pth"),
-        Path("checkpoints/SR_RFDN_2_96.pth"),
-        Path("checkpoints/SR_IMDN_2_48.pth"),
-        Path("checkpoints/SR_IMDN_2_96.pth"),
-        Path("checkpoints/SR_FastEDSR_2_4.pth"),
-        Path("checkpoints/SR_FastEDSR_2_8.pth"),
-        Path("checkpoints/SR_FastEDSR_2_16.pth"),
-        Path("checkpoints/SR_FastEDSR_2_32.pth"),
-        Path("checkpoints/SR_FastEDSR_2_64.pth"),
-        Path("checkpoints/SR_FastEDSR_2_128.pth"),
-        Path("checkpoints/SR_FastEDSR_4_8.pth"),
-        Path("checkpoints/SR_FastEDSR_4_16.pth"),
-        Path("checkpoints/SR_FastEDSR_4_32.pth"),
-        Path("checkpoints/SR_FastEDSR_4_64.pth"),
-        Path("checkpoints/SR_FastEDSR_4_128.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_2_64.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_32.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_128.pth"),
+
+        # Path("checkpoints/SR_EDSR_2_52.pth"),
+        # Path("checkpoints/SR_EDSR_4_52.pth"),
+        # Path("checkpoints/SR_RFDN_2_48.pth"),
+        # Path("checkpoints/SR_RFDN_4_48.pth"),
+        # Path("checkpoints/SR_RFDN_4_16.pth"),
+        # Path("checkpoints/SR_RFDN_2_96.pth"),
+        # Path("checkpoints/SR_IMDN_2_48.pth"),
+        # Path("checkpoints/SR_IMDN_2_96.pth"),
+        # Path("checkpoints/SR_FastEDSR_2_4.pth"),
+        # Path("checkpoints/SR_FastEDSR_2_8.pth"),
+        # Path("checkpoints/SR_FastEDSR_2_16.pth"),
+        # Path("checkpoints/SR_FastEDSR_2_32.pth"),
+        # Path("checkpoints/SR_FastEDSR_2_64.pth"),
+        # Path("checkpoints/SR_FastEDSR_2_128.pth"),
+        # Path("checkpoints/SR_FastEDSR_4_8.pth"),
+        # Path("checkpoints/SR_FastEDSR_4_16.pth"),
+        # Path("checkpoints/SR_FastEDSR_4_32.pth"),
+        # Path("checkpoints/SR_FastEDSR_4_64.pth"),
+        # Path("checkpoints/SR_FastEDSR_4_128.pth"),
 
         # Path("checkpoints/SR_EDSR_2x_1_32.pth"),
         # Path("checkpoints/SR_EDSR_2x_1_128.pth"),
@@ -189,14 +197,15 @@ if __name__ == "__main__":
     print("Using device:", device)
 
     if EVALUATE_METRICS:
-        test_set = get_test_set(name="DIV2K", upscale_factor=UPSCALE_FACTOR, preload=True, normalize=False)
+        test_set = get_test_set(name="DIV2K", upscale_factor=UPSCALE_FACTOR, preload=True, normalize=False,
+                                jpeg_degradation=JPEG_DEGRADATION)
         evaluator = Evaluator(test_set=test_set, device=device, use_half=USE_HALF)
 
     # Combine checkpoints and methods
     items_to_evaluate = [{'path': p, 'is_method': False} for p in CHECKPOINT_PATHS]
     items_to_evaluate += [{'method': m, 'is_method': True} for m in METHODS]
 
-    csv_path = f"results/results_{UPSCALE_FACTOR}x_{TEST_SET}{'_half' if USE_HALF else ''}.csv"
+    csv_path = f"results/results_{UPSCALE_FACTOR}x_{TEST_SET}{'_jpeg' if JPEG_DEGRADATION else ''}{'_half' if USE_HALF else ''}.csv"
 
     for item in items_to_evaluate:
         is_method = item['is_method']

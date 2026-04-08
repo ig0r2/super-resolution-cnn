@@ -5,7 +5,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from .dataset import ImageDatasetTrain, ImageDatasetTest
-from .dataset_multiscale import ImageDatasetMultiscaleTrain, ImageDatasetMultiscaleTest
+from .dataset_multiscale import ImageDatasetMultiscaleTest
 
 
 def check_if_dataset_exists(path: Path):
@@ -43,20 +43,7 @@ def download_dataset(url, path: Path):
 
 
 # glavna funkcija za uzimanje div2k training seta
-def get_training_set(upscale_factor, patch_size, preload, data_dir="./data"):
-    data_dir = Path(data_dir) / 'DIV2K'
-    hr_dir = data_dir / 'DIV2K_train_HR'
-    if not check_if_dataset_exists(hr_dir):
-        download_dataset("http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_train_HR.zip", data_dir)
-
-    filenames = sorted([f for f in hr_dir.iterdir() if f.is_file()])
-
-    print(f"Using training set: DIV2K {upscale_factor}x")
-    return ImageDatasetTrain(filenames=filenames, upscale_factor=upscale_factor, patch_size=patch_size, preload=preload)
-
-
-# Za multiscale trening
-def get_training_set_multi(patch_size, preload, data_dir="./data"):
+def get_training_set(patch_size, preload, data_dir="./data"):
     data_dir = Path(data_dir) / 'DIV2K'
     hr_dir = data_dir / 'DIV2K_train_HR'
     if not check_if_dataset_exists(hr_dir):
@@ -65,7 +52,7 @@ def get_training_set_multi(patch_size, preload, data_dir="./data"):
     filenames = sorted([f for f in hr_dir.iterdir() if f.is_file()])
 
     print(f"Using training set: DIV2K")
-    return ImageDatasetMultiscaleTrain(filenames=filenames, patch_size=patch_size, preload=preload)
+    return ImageDatasetTrain(filenames=filenames, patch_size=patch_size, preload=preload)
 
 
 def combine_filenames(lr_dir: Path, hr_dir: Path):
@@ -74,7 +61,7 @@ def combine_filenames(lr_dir: Path, hr_dir: Path):
     return [(a, b) for a, b in zip(input_files, target_files)]
 
 
-def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, data_dir="./data"):
+def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, data_dir="./data", jpeg_degradation=False):
     if upscale_factor not in [2, 3, 4]:
         raise Exception(f'Upscale Factor {upscale_factor} unsupported in dataset')
 
@@ -91,11 +78,11 @@ def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, dat
 
     print(f"Using test set: DIV2K {upscale_factor}x")
     return ImageDatasetTest(filenames=combine_filenames(lr_dir, hr_dir), upscale_factor=upscale_factor, preload=preload,
-                            normalize=normalize)
+                            normalize=normalize, jpeg_degradation=jpeg_degradation)
 
 
 # test/validation set that contains 2x,3x,4x LR
-def get_div2k_test_set_multi(preload, normalize, data_dir="./data"):
+def get_div2k_test_set_multi(preload, normalize, data_dir="./data", jpeg_degradation=False):
     data_dir = Path(data_dir) / 'DIV2K'
     lr_dir_2 = data_dir / 'DIV2K_valid_LR_bicubic/X2'
     lr_dir_3 = data_dir / 'DIV2K_valid_LR_bicubic/X3'
@@ -122,7 +109,8 @@ def get_div2k_test_set_multi(preload, normalize, data_dir="./data"):
     filenames = [(a, b, c, d) for a, b, c, d in zip(lr_files_2, lr_files_3, lr_files_4, target_files)]
 
     print(f"Using test set: DIV2K 2x,3x,4x")
-    return ImageDatasetMultiscaleTest(filenames=filenames, preload=preload, normalize=normalize)
+    return ImageDatasetMultiscaleTest(filenames=filenames, preload=preload, normalize=normalize,
+                                      jpeg_degradation=jpeg_degradation)
 
 
 def get_hugginface_test_set(name, upscale_factor, preload, normalize, data_dir="./data"):
@@ -150,9 +138,9 @@ def get_hugginface_test_set(name, upscale_factor, preload, normalize, data_dir="
 
 # glavna funkcija za uzimanje test seta
 def get_test_set(name: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"],
-                 upscale_factor: Literal[2, 3, 4], preload, normalize=True, data_dir="./data"):
+                 upscale_factor: Literal[2, 3, 4], preload, normalize=True, data_dir="./data", jpeg_degradation=False):
     if name.upper() == "DIV2K":
-        return get_div2k_test_set(upscale_factor, preload, normalize, data_dir)
+        return get_div2k_test_set(upscale_factor, preload, normalize, data_dir, jpeg_degradation)
     if name.upper() == "SET5":
         return get_hugginface_test_set("Set5", upscale_factor, preload, normalize, data_dir)
     if name.upper() == "SET14":

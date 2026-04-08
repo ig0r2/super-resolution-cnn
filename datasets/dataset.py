@@ -1,3 +1,5 @@
+import random
+
 import torch
 from tqdm import tqdm
 import sys
@@ -8,6 +10,33 @@ from torchvision.transforms import v2
 
 from .transforms import RandomRotation90
 
+import io
+from PIL import Image
+import torchvision.transforms.functional as TF
+
+
+def apply_jpeg_compression(tensor, quality: int):
+    """
+    tensor: float RGB tensor [B, C, H, W] or [C, H, W]
+    quality: JPEG quality 1-95
+    """
+    if tensor.ndim == 3:
+        # Single image [C, H, W]
+        img = TF.to_pil_image(tensor)
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=quality)
+        buffer.seek(0)
+        img_compressed = Image.open(buffer).copy()
+        return TF.to_tensor(img_compressed)  # float [0,1]
+
+    elif tensor.ndim == 4:
+        # Batch [B, C, H, W] — process each image individually
+        return torch.stack([
+            apply_jpeg_compression(img, quality) for img in tensor
+        ])
+
+    return tensor
+
 
 # Trening dataset klasa
 # cuva nazive fajlova HR slika (filenames)
@@ -16,11 +45,10 @@ from .transforms import RandomRotation90
 # preload = True - ucita sve slike u RAM pre nego sto pocne treniranje. Za DIV2K potrebno je 10GB slobodno
 # Uz ovu klasu mora da se koristi TrainCollateFn kao collate_fn u dataloaderu
 class ImageDatasetTrain(data.Dataset):
-    def __init__(self, filenames, upscale_factor, patch_size=192, preload=False):
+    def __init__(self, filenames, patch_size=192, preload=False):
         super().__init__()
         self.filenames = filenames
         self.preload = preload
-        self.upscale_factor = upscale_factor
 
         # transforms
         self.transforms = v2.Compose([
@@ -50,8 +78,10 @@ class ImageDatasetTrain(data.Dataset):
 
 
 class TrainCollateFn:
-    def __init__(self, scale):
+    def __init__(self, scale, jpeg_degradation=False, jpeg_quality=(20, 95)):
         self.scale = scale
+        self.jpeg_degradation = jpeg_degradation
+        self.jpeg_quality = jpeg_quality  # (min, max) quality range
 
     def __call__(self, batch):
         """The collate_fn in DataLoader is a function that processes a list of samples to create a batch.
@@ -61,6 +91,12 @@ class TrainCollateFn:
         _, _, H, W = hr.shape
         lr = F.interpolate(hr, size=(H // self.scale, W // self.scale), mode='bicubic', align_corners=False,
                            antialias=True)
+
+        # JPEG degradation on LR
+        if self.jpeg_degradation:
+            quality = random.randint(self.jpeg_quality[0], self.jpeg_quality[1])
+            lr = (apply_jpeg_compression(lr, quality) * 255).to(torch.uint8)
+
         # uint8 (0-255) -> float (0-1)
         return lr.float().div(255.0), hr.float().div(255.0)
 
@@ -70,24 +106,25 @@ class TrainCollateFn:
 # normalize = True - pretvara slike u float [0-1]
 # normalize = False - ostavlja slike kao unit8 [0-255]
 class ImageDatasetTest(data.Dataset):
-    def __init__(self, filenames, upscale_factor, preload=False, normalize=True):
+    def __init__(self, filenames, upscale_factor, preload=False, normalize=True, jpeg_degradation=False):
         super().__init__()
         self.filenames = filenames
         self.preload = preload
         self.upscale_factor = upscale_factor
         self.normalize = normalize
+        self.jpeg_degradation = jpeg_degradation
         # preload
         if preload:
             self.hr_images = []
             self.lr_images = []
-            for path in tqdm(filenames, desc="Loading images", unit="img", file=sys.stdout):
+            for i, (path) in enumerate(tqdm(filenames, desc="Loading images", unit="img", file=sys.stdout)):
                 lr = decode_image(str(path[0]))
                 hr = decode_image(str(path[1]))
-                lr, hr = self._transform(lr, hr)
+                lr, hr = self._transform(lr, hr, i)
                 self.lr_images.append(lr)
                 self.hr_images.append(hr)
 
-    def _transform(self, lr, hr):
+    def _transform(self, lr, hr, index):
         # neke slike su grayscale tj imaju samo jedan kanal
         if lr.shape[0] != 3: lr = v2.functional.grayscale_to_rgb(lr)
         if hr.shape[0] != 3: hr = v2.functional.grayscale_to_rgb(hr)
@@ -96,6 +133,12 @@ class ImageDatasetTest(data.Dataset):
             diff_h = hr.shape[1] % self.upscale_factor
             diff_w = hr.shape[2] % self.upscale_factor
             hr = v2.functional.crop_image(hr, diff_h // 2, diff_w // 2, hr.shape[1] - diff_h, hr.shape[2] - diff_w)
+
+        # 100 images, quality 20-100
+        if self.jpeg_degradation:
+            quality = (index + 1) * 80 // 100
+            lr = (apply_jpeg_compression(lr, quality) * 255).to(torch.uint8)
+
         return lr, hr
 
     def __getitem__(self, index):
@@ -105,7 +148,7 @@ class ImageDatasetTest(data.Dataset):
         else:
             lr = decode_image(str(self.filenames[index][0]))
             hr = decode_image(str(self.filenames[index][1]))
-            lr, hr = self._transform(lr, hr)
+            lr, hr = self._transform(lr, hr, index)
 
         if self.normalize:
             return lr.float().div(255.0), hr.float().div(255.0)

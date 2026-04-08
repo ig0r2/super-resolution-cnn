@@ -11,7 +11,7 @@ from datasets import get_training_set, get_test_set, TrainCollateFn
 
 
 class Trainer:
-    def __init__(self, config, device):
+    def __init__(self, config, device, jpeg_degradation=False):
         self.model = None
         self.optimizer = None
         self.scheduler = None
@@ -21,14 +21,17 @@ class Trainer:
 
         self.upscale_factor = config['models'][0]['model']['params']['upscale_factor']
 
+        assert config['patch_size'] % self.upscale_factor == 0, f"Patch size not divisible by {self.upscale_factor}"
+
         self.train_loader = DataLoader(
-            dataset=get_training_set(upscale_factor=self.upscale_factor, patch_size=config['patch_size'],
-                                     preload=config['train_preload']),
-            collate_fn=TrainCollateFn(self.upscale_factor), num_workers=config['num_workers'],
+            dataset=get_training_set(patch_size=config['patch_size'], preload=config['train_preload']),
+            collate_fn=TrainCollateFn(self.upscale_factor, jpeg_degradation=jpeg_degradation),
+            num_workers=config['num_workers'],
             batch_size=config['batch_size'], shuffle=True, persistent_workers=True, pin_memory=True
         )
         self.val_loader = DataLoader(
-            dataset=get_test_set(name="DIV2K", upscale_factor=self.upscale_factor, preload=config['val_preload']),
+            dataset=get_test_set(name="DIV2K", upscale_factor=self.upscale_factor, preload=config['val_preload'],
+                                 jpeg_degradation=jpeg_degradation),
             num_workers=1, batch_size=1, persistent_workers=True, pin_memory=True
         )  # validacija batch_size 1 zato sto su slike razlicitih velicina
 

@@ -9,8 +9,9 @@ from utils.logger import Logger
 from models import get_model
 
 if __name__ == "__main__":
-    CONFIG_FILE = "config/training_multiscale.yaml"
+    CONFIG_FILE = "config/training_multi_jpeg.yaml"
     MULTISCALE = True
+    JPEG_DEGRADATION = True
 
     ######################################################
     # load config
@@ -23,9 +24,9 @@ if __name__ == "__main__":
 
     # create trainer (load datasets)
     if MULTISCALE:
-        trainer = TrainerMultiscale(config=config, device=device)
+        trainer = TrainerMultiscale(config=config, device=device, jpeg_degradation=JPEG_DEGRADATION)
     else:
-        trainer = Trainer(config=config, device=device)
+        trainer = Trainer(config=config, device=device, jpeg_degradation=JPEG_DEGRADATION)
 
     # for each model
     for config_m in config['models']:

@@ -5,7 +5,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 
-from datasets import get_test_set, get_training_set_multi, multiscale_train_collate_fn
+from datasets import get_training_set, MultiscaleTrainCollateFn
 from datasets.data import get_div2k_test_set_multi
 from utils.metrics import SSIM
 from utils.model_utils import tile_forward
@@ -13,7 +13,7 @@ from utils.plot import plot_training_history
 
 
 class TrainerMultiscale:
-    def __init__(self, config, device):
+    def __init__(self, config, device, jpeg_degradation=False):
         self.model = None
         self.optimizer = None
         self.scheduler = None
@@ -21,13 +21,17 @@ class TrainerMultiscale:
         self.device = device
         self.config = config
 
+        assert config['patch_size'] % 12 == 0, "Patch size not divisible by 2,3,4"
+
         self.train_loader = DataLoader(
-            dataset=get_training_set_multi(patch_size=config['patch_size'], preload=config['train_preload']),
+            dataset=get_training_set(patch_size=config['patch_size'], preload=config['train_preload']),
+            collate_fn=MultiscaleTrainCollateFn(jpeg_degradation=jpeg_degradation),
             num_workers=config['num_workers'], batch_size=config['batch_size'],
-            collate_fn=multiscale_train_collate_fn, shuffle=True, persistent_workers=True, pin_memory=True
+            shuffle=True, persistent_workers=True, pin_memory=True
         )
         self.val_loader = DataLoader(
-            dataset=get_div2k_test_set_multi(preload=config['val_preload'], normalize=True),
+            dataset=get_div2k_test_set_multi(preload=config['val_preload'], normalize=True,
+                                             jpeg_degradation=jpeg_degradation),
             num_workers=1, batch_size=1, persistent_workers=True, pin_memory=True
         )
 
