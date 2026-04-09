@@ -44,7 +44,7 @@ def print_model_layers(model):
 
 
 def get_weights_from_model(model):
-    return {k: v.detach().cpu().numpy().astype(np.float16) for k, v in model.state_dict().items()}
+    return {k: v.detach().cpu().numpy() for k, v in model.state_dict().items()}
 
 
 """
@@ -177,9 +177,8 @@ def get_conv_shader(W, b, out_group, name, prev_name, relu, skip_name, in_start,
         # Add skip connection
         if skip_name is not None:
             code += f"    result += conv_{skip_name}_p{out_group}_texOff(vec2(0.0, 0.0));\n"
-
-    # Add relu
-    if relu: code += "    result = max(result, 0.0);\n"
+        # Add relu
+        if relu: code += "    result = max(result, 0.0);\n"
 
     code += "    return result;\n}\n"
     return code
@@ -278,7 +277,7 @@ and add to upscaled image       vec3 final_output = MAIN_tex(MAIN_pos).rgb + res
 """
 
 
-def get_pixel_shuffle_x2(prev_name):
+def get_pixel_shuffle_x2(prev_name, when):
     prev_name = prev_name.replace(".", "_")
 
     code = f"""//!DESC PixelShuffle x2
@@ -289,7 +288,7 @@ def get_pixel_shuffle_x2(prev_name):
 //!WIDTH conv_{prev_name}_p0.w 2 *
 //!HEIGHT conv_{prev_name}_p0.h 2 *
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > *
+//!WHEN {when}
 vec4 hook() {{
     ivec2 pos = ivec2(gl_FragCoord.xy);
 
@@ -312,7 +311,7 @@ vec4 hook() {{
     return code
 
 
-def get_pixel_shuffle_x3(prev_name):
+def get_pixel_shuffle_x3(prev_name, when):
     prev_name = prev_name.replace(".", "_")
 
     # 3x3 * 3 channels = 27 output channels => ceil(27/4) = 7 textures (p0..p6)
@@ -320,12 +319,12 @@ def get_pixel_shuffle_x3(prev_name):
     code = f"""//!DESC PixelShuffle x3
 //!HOOK MAIN
 //!BIND MAIN
-{chr(10).join(f"//!BIND conv_{prev_name}_p{i}" for i in range(7))}
+{"\n".join(f"//!BIND conv_{prev_name}_p{i}" for i in range(7))}
 //!SAVE MAIN
 //!WIDTH conv_{prev_name}_p0.w 3 *
 //!HEIGHT conv_{prev_name}_p0.h 3 *
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 2.2 > OUTPUT.h MAIN.h / 2.2 > *
+//!WHEN {when}
 vec4 hook() {{
     ivec2 pos = ivec2(gl_FragCoord.xy);
 
@@ -365,7 +364,7 @@ vec4 hook() {{
     return code
 
 
-def get_pixel_shuffle_x4(prev_name):
+def get_pixel_shuffle_x4(prev_name, when):
     prev_name = prev_name.replace(".", "_")
 
     # 4x4 * 3 channels = 48 output channels => ceil(48/4) = 12 textures (p0..p11)
@@ -378,7 +377,7 @@ def get_pixel_shuffle_x4(prev_name):
 //!WIDTH conv_{prev_name}_p0.w 4 *
 //!HEIGHT conv_{prev_name}_p0.h 4 *
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 3.2 > OUTPUT.h MAIN.h / 3.2 > *
+//!WHEN {when}
 vec4 hook() {{
     ivec2 pos = ivec2(gl_FragCoord.xy);
 
@@ -431,27 +430,27 @@ def get_upscale_block_x2(W, prev_name):
     final_conv_name = f"upscale_block_2.0"
     when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > * OUTPUT.w MAIN.w / 2.2 < OUTPUT.h MAIN.h / 2.2 < * *"
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
-            get_pixel_shuffle_x2(final_conv_name))
+            get_pixel_shuffle_x2(prev_name=final_conv_name, when=when))
 
 
 def get_upscale_block_x3(W, prev_name):
     final_conv_name = f"upscale_block_3.0"
     when = "OUTPUT.w MAIN.w / 2.2 >= OUTPUT.h MAIN.h / 2.2 >= * OUTPUT.w MAIN.w / 3.2 < OUTPUT.h MAIN.h / 3.2 < * *"
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
-            get_pixel_shuffle_x3(final_conv_name))
+            get_pixel_shuffle_x3(prev_name=final_conv_name, when=when))
 
 
 def get_upscale_block_x4(W, prev_name):
     final_conv_name = f"upscale_block_4.0"
     when = "OUTPUT.w MAIN.w / 3.2 >= OUTPUT.h MAIN.h / 3.2 >= *"
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
-            get_pixel_shuffle_x4(final_conv_name))
+            get_pixel_shuffle_x4(prev_name=final_conv_name, when=when))
 
 
 ##############################################
 
 if __name__ == "__main__":
-    checkpoint_path = Path("checkpoints/SR_FastEDSR_2_64.pth")
+    checkpoint_path = Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth")
 
     output_path_2 = Path(f"exports/glsl/{checkpoint_path.stem}.glsl")
     output_path_3 = Path(f"C:/Users/User/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
@@ -460,7 +459,6 @@ if __name__ == "__main__":
     output_path_2.parent.mkdir(parents=True, exist_ok=True)
 
     model, model_config = load_model_from_checkpoint(checkpoint_path, "cpu")
-    model.half()
 
     print_model_layers(model)
     W = get_weights_from_model(model)
