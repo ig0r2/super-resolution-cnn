@@ -23,6 +23,12 @@ models:
         nf: 32
   - model:
       name: SR_FastEDSR_Multi
+      checkpoint_name: SR_FastEDSR_jpeg_4_48
+      params:
+        num_blocks: 4
+        nf: 48
+  - model:
+      name: SR_FastEDSR_Multi
       checkpoint_name: SR_FastEDSR_jpeg_4_64
       params:
         num_blocks: 4
@@ -33,3 +39,15 @@ models:
       params:
         num_blocks: 4
         nf: 128
+  - model:
+      name: SR_FastEDSR_Multi
+      checkpoint_name: SR_FastEDSR_jpeg_4_256
+      params:
+        num_blocks: 4
+        nf: 256
+  - model:
+      name: SR_FastEDSR_Multi
+      checkpoint_name: SR_FastEDSR_jpeg_6_32
+      params:
+        num_blocks: 6
+        nf: 32

@@ -26,7 +26,7 @@ class ImageComparison:
     def __init__(self, lr_path, hr_path, device, upscale_factor):
         self.device = device
         self.upscale_factor = upscale_factor
-        self.img_name = Path(lr_path).stem
+        self.lr_path = Path(lr_path)
         self.lr_image_fp = decode_image(str(lr_path)).unsqueeze(0).float().div(255).to(self.device)
         self.hr_image = decode_image(str(hr_path)).unsqueeze(0).float().to(self.device)
         self.ssim = SSIM(device=device, data_range=255.0)
@@ -70,7 +70,7 @@ class ImageComparison:
     def compare(self, checkpoint_paths, methods, crop_box, save_dir='inference/comparison', dpi=150):
         """
         Args:
-            crop_box: Tuple (x, y, width, height) - region za crop NA HR SLICI
+            crop_box: Tuple (x, y, width, height) - region za crop NA LR SLICI
         """
         # Process image with all models
         images = [self.proccess_checkpoint(ch) for ch in checkpoint_paths]
@@ -86,10 +86,10 @@ class ImageComparison:
         grid_rows = int(np.ceil(len(images) / grid_cols))
         x, y, w, h = crop_box
 
-        x_lr = x // self.upscale_factor
-        y_lr = y // self.upscale_factor
-        w_lr = w // self.upscale_factor
-        h_lr = h // self.upscale_factor
+        x_hr = x * self.upscale_factor
+        y_hr = y * self.upscale_factor
+        w_hr = w * self.upscale_factor
+        h_hr = h * self.upscale_factor
 
         # Kreiraj figuru sa GridSpec
         fig = plt.figure(figsize=(4 * grid_cols, 3.5 * grid_rows))
@@ -99,24 +99,25 @@ class ImageComparison:
         ax_original = fig.add_subplot(gs[:, 0])
         ax_original.imshow(original_image)
         ax_original.axis('off')
-        ax_original.text(0.5, -0.05, self.img_name, transform=ax_original.transAxes, ha='center', va='top', fontsize=10)
+        ax_original.text(0.5, -0.05, self.lr_path.name, transform=ax_original.transAxes, ha='center', va='top',
+                         fontsize=10)
 
         # Draw rectangle for crop patch on original image
-        ax_original.add_patch(patches.Rectangle((x_lr, y_lr), w_lr, h_lr,
-                                                linewidth=1, edgecolor='red', facecolor='none', linestyle='-'))
+        ax_original.add_patch(
+            patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='red', facecolor='none', linestyle='-'))
 
         # Comparison grid
         for i, method_img in enumerate(images):
             ax = fig.add_subplot(gs[i // grid_cols, i % grid_cols + 1])
 
-            crop = np.array(method_img['img'])[y:y + h, x:x + w]
+            crop = np.array(method_img['img'])[y_hr:y_hr + h_hr, x_hr:x_hr + w_hr]
             ax.imshow(crop, interpolation='nearest')
             ax.axis('off')
 
             ax.text(0.5, -0.1, f'{method_img['name']}\n{method_img['desc']}',
                     transform=ax.transAxes, ha='center', va='top', fontsize=10)
 
-        save_path = Path(save_dir) / f'comparison_{self.img_name}.png'
+        save_path = Path(save_dir) / f'comparison_{self.lr_path.stem}.png'
         save_path.parent.mkdir(parents=True, exist_ok=True)
         save_path = get_unique_path(save_path)
         plt.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.2)

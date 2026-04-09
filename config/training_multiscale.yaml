@@ -46,6 +46,24 @@ models:
       params:
         num_blocks: 2
         nf: 96
+  - model:
+      name: SR_RFDN_Multi
+      checkpoint_name: SR_RFDN_1_128
+      params:
+        num_blocks: 1
+        nf: 128
+  - model:
+      name: SR_RFDN_Multi
+      checkpoint_name: SR_RFDN_4_128
+      params:
+        num_blocks: 4
+        nf: 128
+  - model:
+      name: SR_RFDN_Multi
+      checkpoint_name: SR_RFDN_4_256
+      params:
+        num_blocks: 4
+        nf: 256
 
   - model:
       name: SR_IMDN_Multi
