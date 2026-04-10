@@ -21,7 +21,7 @@ RUNTYPE: Runtype = 'onnxruntime-tensorrt'
 if TILED:
     INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
 
-model_path = Path(f"exports/onnx/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_cv2.onnx")
+model_path = Path(f"exports/onnx/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.onnx")
 
 # Export if needed
 if not model_path.exists():

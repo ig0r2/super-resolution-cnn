@@ -32,7 +32,7 @@ class EvaluatorPerfVideo:
     """
 
     def __init__(self, model, name, runtype: Runtype, image_size=(720, 1280), upscale_factor=2, tiled=False,
-                 tile_size=256, dont_export=False, warmup_runs=10, iterations=100):
+                 tile_size=256, warmup_runs=10, iterations=100):
         self.model = model
         self.model.eval()
         self.model.half()
@@ -49,8 +49,6 @@ class EvaluatorPerfVideo:
         self.iterations = iterations
         self.runtype: Runtype = runtype
 
-        self.dont_export = dont_export
-
     def evaluate(self):
         if self.runtype == 'tensorrt':
             return self.evaluate_tensorrt()
@@ -63,9 +61,10 @@ class EvaluatorPerfVideo:
         import onnxruntime as ort
 
         # Export model
-        output_path = Path(f"exports/onnx/{self.name}_{self.input_size[0]}x{self.input_size[1]}_cv2.onnx")
+        output_path = Path(
+            f"exports/onnx/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2.onnx")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.dont_export:
+        if not output_path.exists():
             export_onnx(VideoWrapperCV2(self.model), output_path, self.input_size)
 
         if self.runtype == "onnxruntime-tensorrt":
@@ -105,9 +104,10 @@ class EvaluatorPerfVideo:
 
         torch.cuda.empty_cache()
 
-        output_path = Path(f"exports/trt/{self.name}_{self.input_size[0]}x{self.input_size[1]}_cv2.pt2")
+        output_path = Path(
+            f"exports/trt/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2.pt2")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.dont_export:
+        if not output_path.exists():
             model = export_trt(VideoWrapperCV2(self.model), output_path, self.input_size)
         else:
             model = torch.export.load(output_path).module()

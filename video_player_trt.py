@@ -7,7 +7,7 @@ from utils.video.export import export_trt
 from utils.video.model_utils import TileProcessorTorch
 from utils.video.videoplayer import VideoPlayer
 
-MODEL = "SR_RFDN_2x_2_128"
+MODEL = "SR_FastEDSR_jpeg_4_32"
 VIDEO_PATH = Path("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
 INPUT_SIZE = (480, 854)
@@ -19,7 +19,7 @@ TILE_SIZE = 256
 if TILED:
     INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
 
-model_path = Path(f"exports/trt/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_cv2.pt2")
+model_path = Path(f"exports/trt/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.pt2")
 
 # Export if needed
 if not model_path.exists():
