@@ -27,10 +27,14 @@ if __name__ == "__main__":
     USE_TENSORRT = True
 
     CHECKPOINT_PATHS = [
-        # Path("checkpoints/SR_FastEDSR_jpeg_2_64.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_2_64.pth"),
         Path("checkpoints/SR_FastEDSR_jpeg_4_32.pth"),
-        # Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth"),
-        # Path("checkpoints/SR_FastEDSR_jpeg_4_128.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_32_s.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_32_s.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_64_s.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_128.pth"),
+        Path("checkpoints/SR_FastEDSR_jpeg_4_128_sharp5_1_05.pth"),
 
         # Path("checkpoints/SR_EDSR_2_52.pth"),
         # Path("checkpoints/SR_EDSR_4_52.pth"),
@@ -197,8 +201,8 @@ if __name__ == "__main__":
     print("Using device:", device)
 
     if EVALUATE_METRICS:
-        test_set = get_test_set(name="DIV2K", upscale_factor=UPSCALE_FACTOR, preload=True, normalize=False,
-                                jpeg_degradation=JPEG_DEGRADATION)
+        test_set = get_test_set(name="DIV2K", upscale_factor=UPSCALE_FACTOR, preload=len(CHECKPOINT_PATHS) > 1,
+                                normalize=False, jpeg_degradation=JPEG_DEGRADATION)
         evaluator = Evaluator(test_set=test_set, device=device, use_half=USE_HALF)
 
     # Combine checkpoints and methods

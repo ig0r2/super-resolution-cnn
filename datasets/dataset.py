@@ -10,32 +10,31 @@ from torchvision.transforms import v2
 
 from .transforms import RandomRotation90
 
-import io
-from PIL import Image
+from torchvision.io import encode_jpeg, decode_jpeg
 import torchvision.transforms.functional as TF
 
 
-def apply_jpeg_compression(tensor, quality: int):
-    """
-    tensor: float RGB tensor [B, C, H, W] or [C, H, W]
-    quality: JPEG quality 1-95
-    """
-    if tensor.ndim == 3:
-        # Single image [C, H, W]
-        img = TF.to_pil_image(tensor)
-        buffer = io.BytesIO()
-        img.save(buffer, format="JPEG", quality=quality)
-        buffer.seek(0)
-        img_compressed = Image.open(buffer).copy()
-        return TF.to_tensor(img_compressed)  # float [0,1]
+def sharpen_image(tensor: torch.Tensor, kernel_size=5, sigma=1.0, strength=0.5):
+    """[B, C, H, W] or [C, H, W], float -> float"""
+    single_img = tensor.ndim == 3
+    if single_img:
+        tensor = tensor.unsqueeze(0)  # -> [1, C, H, W]
 
-    elif tensor.ndim == 4:
-        # Batch [B, C, H, W] — process each image individually
-        return torch.stack([
-            apply_jpeg_compression(img, quality) for img in tensor
-        ])
+    blurred = TF.gaussian_blur(tensor, kernel_size=[kernel_size, kernel_size], sigma=[sigma, sigma])
+    sharpened = torch.addcmul(tensor, tensor - blurred, torch.tensor(strength, device=tensor.device))
+    sharpened = sharpened.clamp_(0.0, 1.0)
 
-    return tensor
+    return sharpened.squeeze(0) if single_img else sharpened
+
+
+def apply_jpeg_compression(tensor: torch.Tensor, quality: int):
+    """[B, C, H, W] or [C, H, W], unit8 -> unit8"""
+    single_img = tensor.ndim == 3
+    if single_img:
+        tensor = tensor.unsqueeze(0)
+
+    compressed = torch.stack([decode_jpeg(encode_jpeg(img, quality=quality)) for img in tensor])
+    return compressed.squeeze(0) if single_img else compressed
 
 
 # Trening dataset klasa
@@ -89,16 +88,23 @@ class TrainCollateFn:
         Stacks the batch of HR images, then it downscales whole batch. Slightly faster than downscaling in __getitem__"""
         hr = torch.stack(batch)
         _, _, H, W = hr.shape
-        lr = F.interpolate(hr, size=(H // self.scale, W // self.scale), mode='bicubic', align_corners=False,
-                           antialias=True)
+        if self.scale > 1:
+            lr = F.interpolate(hr, size=(H // self.scale, W // self.scale), mode='bicubic', align_corners=False,
+                               antialias=True)
+        else:
+            lr = hr.clone()
+
+        hr = hr.float().div(255.0)
 
         # JPEG degradation on LR
         if self.jpeg_degradation:
             quality = random.randint(self.jpeg_quality[0], self.jpeg_quality[1])
-            lr = (apply_jpeg_compression(lr, quality) * 255).to(torch.uint8)
+            lr = apply_jpeg_compression(lr, quality)
+            # sharpen HR
+            hr = sharpen_image(hr)
 
-        # uint8 (0-255) -> float (0-1)
-        return lr.float().div(255.0), hr.float().div(255.0)
+        # float (0-1)
+        return lr.float().div(255.0), hr
 
 
 # Test dataset klasa
@@ -136,8 +142,8 @@ class ImageDatasetTest(data.Dataset):
 
         # 100 images, quality 20-100
         if self.jpeg_degradation:
-            quality = (index + 1) * 80 // 100
-            lr = (apply_jpeg_compression(lr, quality) * 255).to(torch.uint8)
+            quality = (index + 1) * 80 // 100 + 20
+            lr = apply_jpeg_compression(lr, quality)
 
         return lr, hr
 

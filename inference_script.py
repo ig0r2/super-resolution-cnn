@@ -11,7 +11,7 @@ from utils.model_utils import tile_forward
 
 # Inferenca svih slika iz inference/input foldera za izabrani checkpoint ili metod
 
-CHECKPOINT_PATH: Path = Path("checkpoints/SR_FastEDSR_4_128.pth")
+CHECKPOINT_PATH: Path = Path("checkpoints/SR_FastEDSR_jpeg_4_64_s.pth")
 
 USE_METHOD = False
 METHOD: Literal['nearest', 'bilinear', 'bicubic', 'lanczos'] = "bicubic"
@@ -52,9 +52,9 @@ for input_path in INPUT_DIR.iterdir():
 
     # save output image
     if USE_METHOD:
-        output_image_path = OUTPUT_DIR / f"{input_path.stem}_{METHOD}.png"
+        output_image_path = OUTPUT_DIR / f"{input_path.stem}_{METHOD}_{UPSCALE_FACTOR}x.png"
     else:
-        output_image_path = OUTPUT_DIR / f"{input_path.stem}_{CHECKPOINT_PATH.stem}.png"
+        output_image_path = OUTPUT_DIR / f"{input_path.stem}_{CHECKPOINT_PATH.stem}_{UPSCALE_FACTOR}x.png"
     save_image(output, output_image_path)
 
     print(

@@ -7,7 +7,7 @@ from torchvision.transforms import v2
 from tqdm import tqdm
 import random
 
-from .dataset import apply_jpeg_compression
+from .dataset import apply_jpeg_compression, sharpen_image
 
 
 class MultiscaleTrainCollateFn:
@@ -25,13 +25,18 @@ class MultiscaleTrainCollateFn:
         _, _, H, W = hr.shape
         lr = F.interpolate(hr, size=(H // scale, W // scale), mode='bicubic', align_corners=False, antialias=True)
 
+        hr = hr.float().div(255.0)
+
         # JPEG degradation on LR
         if self.jpeg_degradation:
+            # apply jpeg on LR (pass uint8 but returns float)
             quality = random.randint(self.jpeg_quality[0], self.jpeg_quality[1])
-            lr = (apply_jpeg_compression(lr, quality) * 255).to(torch.uint8)
+            lr = apply_jpeg_compression(lr, quality)
+            # sharpen HR
+            hr = sharpen_image(hr)
 
-        # uint8 (0-255) -> float (0-1)
-        return lr.float().div(255.0), hr.float().div(255.0), scale
+        # float (0-1)
+        return lr.float().div(255.0), hr, scale
 
 
 # cuva filenames od HR i LR slika [(LR2x,LR3x,LR4x,HR)] - saves RAM and a bit of time compared to 3 separate val loaders
@@ -85,10 +90,10 @@ class ImageDatasetMultiscaleTest(data.Dataset):
 
         # 100 images, quality 20-100
         if self.jpeg_degradation:
-            quality = (index + 1) * 80 // 100
-            lr_2 = (apply_jpeg_compression(lr_2, quality) * 255).to(torch.uint8)
-            lr_3 = (apply_jpeg_compression(lr_3, quality) * 255).to(torch.uint8)
-            lr_4 = (apply_jpeg_compression(lr_4, quality) * 255).to(torch.uint8)
+            quality = (index + 1) * 80 // 100 + 20
+            lr_2 = apply_jpeg_compression(lr_2, quality)
+            lr_3 = apply_jpeg_compression(lr_3, quality)
+            lr_4 = apply_jpeg_compression(lr_4, quality)
 
         return lr_2, lr_3, lr_4, hr
 
