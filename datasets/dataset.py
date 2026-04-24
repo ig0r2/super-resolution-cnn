@@ -9,32 +9,7 @@ from torchvision.io import decode_image
 from torchvision.transforms import v2
 
 from .transforms import RandomRotation90
-
-from torchvision.io import encode_jpeg, decode_jpeg
-import torchvision.transforms.functional as TF
-
-
-def sharpen_image(tensor: torch.Tensor, kernel_size=5, sigma=1.0, strength=0.5):
-    """[B, C, H, W] or [C, H, W], float -> float"""
-    single_img = tensor.ndim == 3
-    if single_img:
-        tensor = tensor.unsqueeze(0)  # -> [1, C, H, W]
-
-    blurred = TF.gaussian_blur(tensor, kernel_size=[kernel_size, kernel_size], sigma=[sigma, sigma])
-    sharpened = torch.addcmul(tensor, tensor - blurred, torch.tensor(strength, device=tensor.device))
-    sharpened = sharpened.clamp_(0.0, 1.0)
-
-    return sharpened.squeeze(0) if single_img else sharpened
-
-
-def apply_jpeg_compression(tensor: torch.Tensor, quality: int):
-    """[B, C, H, W] or [C, H, W], unit8 -> unit8"""
-    single_img = tensor.ndim == 3
-    if single_img:
-        tensor = tensor.unsqueeze(0)
-
-    compressed = torch.stack([decode_jpeg(encode_jpeg(img, quality=quality)) for img in tensor])
-    return compressed.squeeze(0) if single_img else compressed
+from .dataset_utils import jpeg_quality_for_index, apply_jpeg_compression, sharpen_image, ensure_rgb, crop_to_match
 
 
 # Trening dataset klasa
@@ -57,20 +32,14 @@ class ImageDatasetTrain(data.Dataset):
         ])
         # preload
         if preload:
-            self.hr_images = []
-            for path in tqdm(filenames, desc="Loading images", unit="img", file=sys.stdout):
-                self.hr_images.append(decode_image(str(path)))
+            self.hr_images = [decode_image(str(p)) for p in
+                              tqdm(self.filenames, desc="Loading images", unit="img", file=sys.stdout)]
 
     def __getitem__(self, index):
         # format slike od decode_image je tensor RGB [C, H, W] uint8
-        if self.preload:
-            hr = self.hr_images[index]
-        else:
-            hr = decode_image(str(self.filenames[index]))
-
+        hr = self.hr_images[index] if self.preload else decode_image(str(self.filenames[index]))
         # transforimisi
-        hr = self.transforms(hr)
-        return hr
+        return self.transforms(hr)
 
     def __len__(self):
         return len(self.filenames)
@@ -98,10 +67,8 @@ class TrainCollateFn:
 
         # JPEG degradation on LR
         if self.jpeg_degradation:
-            quality = random.randint(self.jpeg_quality[0], self.jpeg_quality[1])
-            lr = apply_jpeg_compression(lr, quality)
-            # sharpen HR
-            hr = sharpen_image(hr)
+            lr = apply_jpeg_compression(lr, random.randint(*self.jpeg_quality))
+            hr = sharpen_image(hr)  # sharpen HR
 
         # float (0-1)
         return lr.float().div(255.0), hr
@@ -132,18 +99,16 @@ class ImageDatasetTest(data.Dataset):
 
     def _transform(self, lr, hr, index):
         # neke slike su grayscale tj imaju samo jedan kanal
-        if lr.shape[0] != 3: lr = v2.functional.grayscale_to_rgb(lr)
-        if hr.shape[0] != 3: hr = v2.functional.grayscale_to_rgb(hr)
+        lr = ensure_rgb(lr)
+        hr = ensure_rgb(hr)
         # neke slike nisu deljive faktorom uvecanja
-        if hr.shape[1] % self.upscale_factor != 0 or hr.shape[2] % self.upscale_factor != 0:
-            diff_h = hr.shape[1] % self.upscale_factor
-            diff_w = hr.shape[2] % self.upscale_factor
-            hr = v2.functional.crop_image(hr, diff_h // 2, diff_w // 2, hr.shape[1] - diff_h, hr.shape[2] - diff_w)
+        target_h = hr.shape[1] - hr.shape[1] % self.upscale_factor
+        target_w = hr.shape[2] - hr.shape[2] % self.upscale_factor
+        hr = crop_to_match(hr, target_h, target_w)
 
         # 100 images, quality 20-100
         if self.jpeg_degradation:
-            quality = (index + 1) * 80 // 100 + 20
-            lr = apply_jpeg_compression(lr, quality)
+            lr = apply_jpeg_compression(lr, jpeg_quality_for_index(index))
 
         return lr, hr
 
