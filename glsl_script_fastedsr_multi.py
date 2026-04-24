@@ -22,8 +22,8 @@ the input is split into "chunks" and the partial sums are accumulated by each ne
 //!SAVE [texture] - texture name that this shader will save to
 //!WIDTH //!HEIGHT - width and height of the texture
 //!COMPONENTS 4 - shader will be RGBA
-//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > * - shader will be used only when OUTPUT image will be 1.2x MAIN image
-       (OUTPUT.w/MAIN.w > 1.2) AND (OUTPUT.h/MAIN.h > 1.2)            * is AND
+//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > + - shader will be used only when OUTPUT image will be 1.2x MAIN image
+       (OUTPUT.w/MAIN.w > 1.2) OR (OUTPUT.h/MAIN.h > 1.2)            * is AND
 """
 
 import subprocess
@@ -219,7 +219,7 @@ def get_conv3x3(W, name, prev_name, relu=False, skip_name=None, chunk_size=8, wh
     num_shaders = int(ceil(output_ch / 4))  # num_ouput_groups
 
     if when is None:
-        when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > *"
+        when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > +"
 
     code = ""
     for i in range(num_shaders):
@@ -428,21 +428,21 @@ vec4 hook() {{
 # Get upscale block for 2x scale (shuffle conv + pixel shuffle)
 def get_upscale_block_x2(W, prev_name):
     final_conv_name = f"upscale_block_2.0"
-    when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > * OUTPUT.w MAIN.w / 2.2 < OUTPUT.h MAIN.h / 2.2 < * *"
+    when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > + OUTPUT.w MAIN.w / 2.2 < OUTPUT.h MAIN.h / 2.2 < + *"
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
             get_pixel_shuffle_x2(prev_name=final_conv_name, when=when))
 
 
 def get_upscale_block_x3(W, prev_name):
     final_conv_name = f"upscale_block_3.0"
-    when = "OUTPUT.w MAIN.w / 2.2 >= OUTPUT.h MAIN.h / 2.2 >= * OUTPUT.w MAIN.w / 3.2 < OUTPUT.h MAIN.h / 3.2 < * *"
+    when = "OUTPUT.w MAIN.w / 2.2 >= OUTPUT.h MAIN.h / 2.2 >= + OUTPUT.w MAIN.w / 3.2 < OUTPUT.h MAIN.h / 3.2 < + *"
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
             get_pixel_shuffle_x3(prev_name=final_conv_name, when=when))
 
 
 def get_upscale_block_x4(W, prev_name):
     final_conv_name = f"upscale_block_4.0"
-    when = "OUTPUT.w MAIN.w / 3.2 >= OUTPUT.h MAIN.h / 3.2 >= *"
+    when = "OUTPUT.w MAIN.w / 3.2 >= OUTPUT.h MAIN.h / 3.2 >= +"
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
             get_pixel_shuffle_x4(prev_name=final_conv_name, when=when))
 
@@ -450,7 +450,7 @@ def get_upscale_block_x4(W, prev_name):
 ##############################################
 
 if __name__ == "__main__":
-    checkpoint_path = Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth")
+    checkpoint_path = Path("checkpoints/SR_FastEDSR_jpeg_4_32_s.pth")
 
     output_path_2 = Path(f"exports/glsl/{checkpoint_path.stem}.glsl")
     output_path_3 = Path(f"C:/Users/User/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
@@ -490,7 +490,7 @@ if __name__ == "__main__":
     output_path_2.write_text(code)
     output_path_3.write_text(code)
 
-    # exit()
+    exit()
 
     subprocess.run(["powershell", "-Command",
                     'rm C:\\Users\\User\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\User\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-240p50.mp4 '])
