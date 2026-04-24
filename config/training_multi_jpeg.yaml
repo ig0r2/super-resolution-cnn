@@ -3,72 +3,50 @@ batch_size: 16
 epochs: 3500
 lr: 0.0001
 scheduler_step_epochs: 1000
-validate_every: 500
+validate_every: 200
 num_workers: 2
 train_preload: True
 val_preload: True
 
 models:
-  - model:
-      name: SR_FastEDSR_Multi
-      checkpoint_name: SR_FastEDSR_jpeg_4_32_s
-      params:
-        num_blocks: 4
-        nf: 32
-  - model:
-      name: SR_FastEDSR_Multi
-      checkpoint_name: SR_FastEDSR_jpeg_4_64_s
-      params:
-        num_blocks: 4
-        nf: 64
+#    - model:
+#        name: SR_FastEDSR_Multi
+#        checkpoint_name: SR_FastEDSR_jpeg_4_32_s_384
+#        params:
+#          num_blocks: 4
+#          nf: 32
+
+
 #  - model:
-#      name: SR_FastEDSR_Multi_prelu
-#      checkpoint_name: SR_FastEDSR_jpeg_4_64_prelu_sharp5_1_05
+#      name: SR_FastEDSR_Multi
+#      checkpoint_name: SR_FastEDSR_jpeg_2_8_s
 #      params:
-#        num_blocks: 4
-#        nf: 64
+#        num_blocks: 2
+#        nf: 8
 #  - model:
-#      name: SR_FastEDSR_Multi_prelu
-#      checkpoint_name: SR_FastEDSR_jpeg_4_32_prelu_sharp5_1_05
+#      name: SR_FastEDSR_Multi
+#      checkpoint_name: SR_FastEDSR_jpeg_2_16_s
+#      params:
+#        num_blocks: 2
+#        nf: 16
+#  - model:
+#      name: SR_FastEDSR_Multi
+#      checkpoint_name: SR_FastEDSR_jpeg_4_32_s
 #      params:
 #        num_blocks: 4
 #        nf: 32
 #  - model:
 #      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_128_sharp5_1_05
+#      checkpoint_name: SR_FastEDSR_jpeg_4_64_s
+#      params:
+#        num_blocks: 4
+#        nf: 64
+#  - model:
+#      name: SR_FastEDSR_Multi
+#      checkpoint_name: SR_FastEDSR_jpeg_4_128_s
 #      params:
 #        num_blocks: 4
 #        nf: 128
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_32_sharp5_1_03
-#      params:
-#        num_blocks: 4
-#        nf: 32
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_32_sharp5_1_1
-#      params:
-#        num_blocks: 4
-#        nf: 32
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_64_fft_log
-#      params:
-#        num_blocks: 4
-#        nf: 64
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_64_fft
-#      params:
-#        num_blocks: 4
-#        nf: 64
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_64_perc
-#      params:
-#        num_blocks: 4
-#        nf: 64
 #  - model:
 #      name: SR_FastEDSR_Multi
 #      checkpoint_name: SR_FastEDSR_jpeg_2_64

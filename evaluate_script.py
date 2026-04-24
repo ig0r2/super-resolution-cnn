@@ -15,26 +15,32 @@ from utils.logger import Logger
 # Evaluacija modela i/ili metoda
 
 if __name__ == "__main__":
-    UPSCALE_FACTOR: Literal[2, 3, 4] = 4
+    UPSCALE_FACTOR: Literal[1, 2, 3, 4] = 1
     TEST_SET: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"] = "DIV2K"
 
     USE_HALF = True
     EVALUATE_METRICS = True
     JPEG_DEGRADATION = True
 
-    EVALUATE_PERFORMANCE_720p = False
-    EVALUATE_PERFORMANCE_480p = False
+    EVALUATE_PERFORMANCE_720p = True
+    EVALUATE_PERFORMANCE_480p = True
     USE_TENSORRT = True
 
     CHECKPOINT_PATHS = [
-        Path("checkpoints/SR_FastEDSR_jpeg_2_64.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_32.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_32_s.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_32_s.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_64_s.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_128.pth"),
-        Path("checkpoints/SR_FastEDSR_jpeg_4_128_sharp5_1_05.pth"),
+        Path("checkpoints/SR_FastEDSR_1x_jpeg_4_32.pth"),
+        Path("checkpoints/SR_FastEDSR_1x_jpeg_4_32_s.pth"),
+        Path("checkpoints/SR_FastEDSR_1x_jpeg_4_64_s.pth"),
+
+        # Path("checkpoints/SR_FastEDSR_jpeg_2_8_s.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_2_16_s.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_2_64.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_32.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_32_s.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_32_s_384.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_64.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_64_s.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_128.pth"),
+        # Path("checkpoints/SR_FastEDSR_jpeg_4_128_s.pth"),
 
         # Path("checkpoints/SR_EDSR_2_52.pth"),
         # Path("checkpoints/SR_EDSR_4_52.pth"),
