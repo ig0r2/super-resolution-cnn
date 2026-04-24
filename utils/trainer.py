@@ -1,5 +1,6 @@
 import sys
 from os.path import exists
+from pathlib import Path
 
 from tqdm import tqdm
 import torch
@@ -19,7 +20,7 @@ class Trainer:
         self.device = device
         self.config = config
 
-        self.upscale_factor = config['models'][0]['model']['params']['upscale_factor']
+        self.upscale_factor = config['models'][0]['model']['params'].get('upscale_factor', 1)
 
         assert config['patch_size'] % self.upscale_factor == 0, f"Patch size not divisible by {self.upscale_factor}"
 
@@ -116,7 +117,8 @@ class Trainer:
         print(f"Resumed from epoch {checkpoint['epoch']}")
 
     def save_checkpoint(self, type=""):
-        path = f"checkpoints/{self.config['model']['checkpoint_name']}{type}.pth"
+        path = Path(f"checkpoints/{self.config['model']['checkpoint_name']}{type}.pth")
+        path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             'epoch': self.epoch,
             'best_val_ssim': self.best_val_ssim,

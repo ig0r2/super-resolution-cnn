@@ -18,6 +18,34 @@ class Block(nn.Module):
         return x + self.layers(x)
 
 
+class Block7(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+
+        self.layers = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=7, padding=3),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels, channels, kernel_size=7, padding=3),
+        )
+
+    def forward(self, x):
+        return x + self.layers(x)
+
+
+class Block_prelu(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+
+        self.layers = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            nn.PReLU(channels, 0),
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+        )
+
+    def forward(self, x):
+        return x + self.layers(x)
+
+
 @register_model
 class SR_FastEDSR(nn.Module):
     """
@@ -88,3 +116,18 @@ class SR_FastEDSR_Multi(nn.Module):
             raise ValueError(f"Scale {upscale_factor} not supported.")
 
         return base + res
+
+
+@register_model
+class SR_FastEDSR_1x(nn.Module):
+    def __init__(self, num_blocks=1, nf=4):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            nn.Conv2d(3, nf, kernel_size=3, padding=1),
+            *[Block(nf) for _ in range(num_blocks)],
+            nn.Conv2d(nf, 3, kernel_size=3, padding=1),
+        )
+
+    def forward(self, x):
+        return x + self.net(x)

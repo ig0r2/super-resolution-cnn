@@ -62,12 +62,15 @@ def combine_filenames(lr_dir: Path, hr_dir: Path):
 
 
 def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, data_dir="./data", jpeg_degradation=False):
-    if upscale_factor not in [2, 3, 4]:
+    if upscale_factor not in [1, 2, 3, 4]:
         raise Exception(f'Upscale Factor {upscale_factor} unsupported in dataset')
 
     data_dir = Path(data_dir) / 'DIV2K'
-    lr_dir = data_dir / 'DIV2K_valid_LR_bicubic' / f"X{upscale_factor}"
     hr_dir = data_dir / 'DIV2K_valid_HR'
+    if upscale_factor == 1:
+        lr_dir = hr_dir
+    else:
+        lr_dir = data_dir / 'DIV2K_valid_LR_bicubic' / f"X{upscale_factor}"
 
     if not check_if_dataset_exists(hr_dir):
         download_dataset("http://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_valid_HR.zip", data_dir)
