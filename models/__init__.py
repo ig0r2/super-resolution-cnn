@@ -18,4 +18,6 @@ from .rfdn.model import SR_RFDN, SR_RFDN_Multi
 from .imdn.model import SR_IMDN, SR_IMDN_Multi
 from .edsr.model import SR_EDSR, SR_EDSR_Multi
 from .edsr.fast_edsr import SR_FastEDSR, SR_FastEDSR_Multi
+from .vdsr.model import SR_VDSR
+from .srcnn.model import SR_SRCNN
 from .regular_models import RegularModel

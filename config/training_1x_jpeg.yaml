@@ -9,18 +9,18 @@ train_preload: True
 val_preload: True
 
 models:
-  - model:
-      name: SR_FastEDSR_1x
-      checkpoint_name: SR_FastEDSR_1x_jpeg_4_32_s
-      params:
-        num_blocks: 4
-        nf: 32
-  - model:
-      name: SR_FastEDSR_1x
-      checkpoint_name: SR_FastEDSR_1x_jpeg_4_64_s
-      params:
-        num_blocks: 4
-        nf: 64
+#  - model:
+#      name: SR_FastEDSR_1x
+#      checkpoint_name: SR_FastEDSR_1x_jpeg_4_32_s
+#      params:
+#        num_blocks: 4
+#        nf: 32
+#  - model:
+#      name: SR_FastEDSR_1x
+#      checkpoint_name: SR_FastEDSR_1x_jpeg_4_64_s
+#      params:
+#        num_blocks: 4
+#        nf: 64
 #  - model:
 #      name: SR_FastEDSR_1x
 #      checkpoint_name: SR_FastEDSR_1x_jpeg_4_32

@@ -10,6 +10,20 @@ val_preload: True
 
 models:
 
+  - model:
+      name: SR_SRCNN
+      checkpoint_name: SR_SRCNN_2x
+      params:
+        upscale_factor: 2
+
+#  - model:
+#      name: SR_VDSR
+#      checkpoint_name: SR_VDSR_2x_18_64
+#      params:
+#        upscale_factor: 2
+#        num_blocks: 18
+#        nf: 64
+
 #  - model:
 #      name: SR_EDSR
 #      checkpoint_name: SR_EDSR_2x_1_32

@@ -9,9 +9,9 @@ from utils.logger import Logger
 from models import get_model
 
 if __name__ == "__main__":
-    CONFIG_FILE = "config/training_multi_jpeg.yaml"
-    MULTISCALE = True
-    JPEG_DEGRADATION = True
+    CONFIG_FILE = "config/training_2x.yaml"
+    MULTISCALE = False
+    JPEG_DEGRADATION = False
 
     ######################################################
     # load config
