@@ -1,14 +1,14 @@
 import sys
-from os.path import exists
 
-from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from datasets import get_training_set, MultiscaleTrainCollateFn
 from datasets.data import get_div2k_test_set_multi
 from utils.metrics import SSIM
 from utils.model_utils import tile_forward
+from utils.path import get_checkpoints_path
 from utils.plot import plot_training_history
 
 
@@ -115,8 +115,8 @@ class TrainerMultiscale:
         return self.metrics_ssim.compute().item()
 
     def load_checkpoint(self):
-        path = f"checkpoints/{self.config['model']['checkpoint_name']}_latest.pth"
-        if not exists(path):
+        path = get_checkpoints_path(f"multiscale/{self.config['model']['checkpoint_name']}_latest.pth")
+        if not path.exists():
             print("No checkpoint to load")
             return
         checkpoint = torch.load(path, map_location=self.device)
@@ -129,7 +129,8 @@ class TrainerMultiscale:
         print(f"Resumed from epoch {checkpoint['epoch']}")
 
     def save_checkpoint(self, type=""):
-        path = f"checkpoints/{self.config['model']['checkpoint_name']}{type}.pth"
+        path = get_checkpoints_path(f"multiscale/{self.config['model']['checkpoint_name']}{type}.pth")
+        path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             'epoch': self.epoch,
             'best_val_ssim': self.best_val_ssim,

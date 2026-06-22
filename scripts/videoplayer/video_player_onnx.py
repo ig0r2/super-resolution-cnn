@@ -1,19 +1,20 @@
-from pathlib import Path
 import numpy as np
 import onnxruntime as ort
+
 from utils.checkpoints import load_model_from_checkpoint
+from utils.path import get_checkpoints_path, get_project_root
 from utils.video.evaluator_perf_video import Runtype, VideoWrapperCV2
 from utils.video.export import export_onnx
 from utils.video.model_utils import TileProcessor
 from utils.video.videoplayer import VideoPlayer
 
-MODEL = "SR_RFDN_2x_2_64"
-VIDEO_PATH = Path("videoinput/F1Bahr-480p50.mp4")
+MODEL = "2x/SR_RFDN_2x_2_64"
+VIDEO_PATH = get_project_root("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
 INPUT_SIZE = (480, 854)
 TILED = True
 TILE_SIZE = 256
-RUNTYPE: Runtype = 'onnxruntime-tensorrt'
+RUNTYPE: Runtype = 'onnxruntime-directml'
 
 ################################################
 
@@ -21,14 +22,17 @@ RUNTYPE: Runtype = 'onnxruntime-tensorrt'
 if TILED:
     INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
 
-model_path = Path(f"exports/onnx/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.onnx")
+checkpoint_name = MODEL.split("/", 1)[-1]
+
+model_path = get_project_root(
+    f"exports/onnx/{checkpoint_name}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.onnx")
 
 # Export if needed
 if not model_path.exists():
     print(f"Model export for input size {INPUT_SIZE[0]}x{INPUT_SIZE[1]} doesnt exist")
     print("Exporting...")
 
-    checkpoint_path = Path(f"checkpoints/{MODEL}.pth")
+    checkpoint_path = get_checkpoints_path(f"{MODEL}.pth")
     if not checkpoint_path.exists():
         print(f"Checkpoint for {MODEL} doesnt exit")
         exit()
@@ -47,6 +51,8 @@ elif RUNTYPE == "onnxruntime-cuda":
     providers = ['CUDAExecutionProvider']
 elif RUNTYPE == "onnxruntime-openvino":
     providers = [('OpenVINOExecutionProvider', {"device_type": "GPU", "precision": "FP16"})]
+elif RUNTYPE == "onnxruntime-directml":
+    providers = ['DmlExecutionProvider']
 
 ort_session = ort.InferenceSession(model_path, providers=providers)
 

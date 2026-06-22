@@ -1,14 +1,15 @@
-from pathlib import Path
 import torch
 import torch_tensorrt
+
 from utils.checkpoints import load_model_from_checkpoint
+from utils.path import get_project_root, get_checkpoints_path
 from utils.video.evaluator_perf_video import VideoWrapperCV2
 from utils.video.export import export_trt
 from utils.video.model_utils import TileProcessorTorch
 from utils.video.videoplayer import VideoPlayer
 
-MODEL = "SR_FastEDSR_jpeg_4_32"
-VIDEO_PATH = Path("videoinput/F1Bahr-480p50.mp4")
+MODEL = "multiscale/SR_FastEDSR_jpeg_4_32"
+VIDEO_PATH = get_project_root("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
 INPUT_SIZE = (480, 854)
 TILED = False
@@ -19,14 +20,17 @@ TILE_SIZE = 256
 if TILED:
     INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
 
-model_path = Path(f"exports/trt/{MODEL}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.pt2")
+checkpoint_name = MODEL.split("/", 1)[-1]
+
+model_path = get_project_root(
+    f"exports/trt/{checkpoint_name}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.pt2")
 
 # Export if needed
 if not model_path.exists():
     print(f"Model export for input size {INPUT_SIZE[0]}x{INPUT_SIZE[1]} doesnt exist")
     print("Compiling and Exporting...")
 
-    checkpoint_path = Path(f"checkpoints/{MODEL}.pth")
+    checkpoint_path = get_checkpoints_path(f"{MODEL}.pth")
     if not checkpoint_path.exists():
         print(f"Checkpoint for {MODEL} doesnt exit")
         exit()

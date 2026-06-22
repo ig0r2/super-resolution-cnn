@@ -11,6 +11,7 @@ from models import RegularModel
 from utils.checkpoints import load_model_from_checkpoint
 from utils.metrics import SSIM, PSNR
 from utils.model_utils import tile_forward
+from utils.path import get_project_root
 
 
 def get_unique_path(path):
@@ -67,7 +68,7 @@ class ImageComparison:
             'metrics': {'ssim': ssim, 'psnr': psnr}
         }
 
-    def compare(self, checkpoint_paths, methods, crop_box, save_dir='inference/comparison', dpi=150):
+    def compare(self, checkpoint_paths, methods, crop_box):
         """
         Args:
             crop_box: Tuple (x, y, width, height) - region za crop NA LR SLICI
@@ -117,9 +118,9 @@ class ImageComparison:
             ax.text(0.5, -0.1, f'{method_img['name']}\n{method_img['desc']}',
                     transform=ax.transAxes, ha='center', va='top', fontsize=10)
 
-        save_path = Path(save_dir) / f'comparison_{self.lr_path.stem}.png'
+        save_path = get_project_root(f'inference/comparison/comparison_{self.lr_path.stem}.png')
         save_path.parent.mkdir(parents=True, exist_ok=True)
         save_path = get_unique_path(save_path)
-        plt.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.2)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight', pad_inches=0.2)
         print(f"Image saved to: {save_path}")
         plt.show()

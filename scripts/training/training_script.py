@@ -3,13 +3,14 @@ import torch.nn as nn
 import torch.optim as optim
 import yaml
 
+from utils.path import get_logs_path, get_config_path
 from utils.trainer import Trainer
 from utils.trainer_multiscale import TrainerMultiscale
 from utils.logger import Logger
 from models import get_model
 
 if __name__ == "__main__":
-    CONFIG_FILE = "config/training_2x.yaml"
+    CONFIG_FILE = get_config_path("training_2x.yaml")
     MULTISCALE = False
     JPEG_DEGRADATION = False
 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     # for each model
     for config_m in config['models']:
         config['model'] = config_m['model']
-        log_path = f"logs/training/training_{config['model']['checkpoint_name']}.txt"
+        log_path = get_logs_path(f"training/training_{config['model']['checkpoint_name']}.txt")
 
         with Logger(log_path):
             model = get_model(config['model']).to(device)

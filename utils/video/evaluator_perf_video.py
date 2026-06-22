@@ -1,13 +1,14 @@
-from pathlib import Path
+import time
 from typing import Literal, TypeAlias
+
 import numpy as np
 import torch
-import time
 
+from utils.path import get_project_root
 from utils.video.export import export_onnx, export_trt
 from utils.video.model_utils import TileProcessor, TileProcessorTorch
 
-Runtype: TypeAlias = Literal['tensorrt', 'onnxruntime-cuda', 'onnxruntime-tensorrt', 'onnxruntime-openvino']
+Runtype: TypeAlias = Literal['tensorrt', 'onnxruntime-cuda', 'onnxruntime-tensorrt', 'onnxruntime-openvino', 'onnxruntime-directml']
 
 
 # Pretvara iz OpenCV formata u format za model, odradi inference i onda vrati u format za OpenCV
@@ -61,14 +62,13 @@ class EvaluatorPerfVideo:
         import onnxruntime as ort
 
         # Export model
-        output_path = Path(
+        output_path = get_project_root(
             f"exports/onnx/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2.onnx")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if not output_path.exists():
             export_onnx(VideoWrapperCV2(self.model), output_path, self.input_size)
 
         if self.runtype == "onnxruntime-tensorrt":
-            import torch_tensorrt
             providers = [('TensorrtExecutionProvider', {'trt_fp16_enable': True})]
         elif self.runtype == "onnxruntime-cuda":
             providers = ['CUDAExecutionProvider']
@@ -100,11 +100,10 @@ class EvaluatorPerfVideo:
     # ============TENSORRT=============
 
     def evaluate_tensorrt(self):
-        import torch_tensorrt
 
         torch.cuda.empty_cache()
 
-        output_path = Path(
+        output_path = get_project_root(
             f"exports/trt/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2.pt2")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if not output_path.exists():

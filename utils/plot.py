@@ -1,6 +1,6 @@
-from pathlib import Path
 import matplotlib.pyplot as plt
-import torch
+
+from utils.path import get_logs_path
 
 
 def plot_training_history(history, title, save_path=None):
@@ -42,7 +42,7 @@ def plot_training_history(history, title, save_path=None):
     plt.tight_layout()
 
     if save_path is None:
-        save_path = Path('logs/training') / f'{title}.png'
+        save_path = get_logs_path(f'training/{title}.png')
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='white')

@@ -22,8 +22,8 @@ the input is split into "chunks" and the partial sums are accumulated by each ne
 //!SAVE [texture] - texture name that this shader will save to
 //!WIDTH //!HEIGHT - width and height of the texture
 //!COMPONENTS 4 - shader will be RGBA
-//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > * - shader will be used only when OUTPUT image will be 1.2x MAIN image
-       (OUTPUT.w/MAIN.w > 1.2) AND (OUTPUT.h/MAIN.h > 1.2)            * is AND
+//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > + - shader will be used only when OUTPUT image will be 1.2x MAIN image
+       (OUTPUT.w/MAIN.w > 1.2) OR (OUTPUT.h/MAIN.h > 1.2)            * is AND
 """
 
 import subprocess
@@ -32,6 +32,7 @@ from pathlib import Path
 import numpy as np
 
 from utils.checkpoints import load_model_from_checkpoint
+from utils.path import get_checkpoints_path, get_project_root
 
 
 def print_model_layers(model):
@@ -44,7 +45,7 @@ def print_model_layers(model):
 
 
 def get_weights_from_model(model):
-    return {k: v.detach().cpu().numpy().astype(np.float16) for k, v in model.state_dict().items()}
+    return {k: v.detach().cpu().numpy() for k, v in model.state_dict().items()}
 
 
 """
@@ -133,7 +134,7 @@ def get_conv_single_group_lines(W, out_group, in_group):
 
 # Shader for selected output group of conv and a selected chunk of inputs
 def get_conv_shader(W, b, out_group, name, prev_name, relu, skip_name, in_start, in_end, is_first_chunk,
-                    is_last_chunk, prev_in_start):
+                    is_last_chunk, prev_in_start, when):
     prev_chunk_name = f"conv_{name}_p{out_group}_c{prev_in_start}"
     save_name = f"conv_{name}_p{out_group}" if is_last_chunk else f"conv_{name}_p{out_group}_c{in_start}"
 
@@ -154,7 +155,7 @@ def get_conv_shader(W, b, out_group, name, prev_name, relu, skip_name, in_start,
 //!WIDTH conv_{prev_name}_p{in_start}.w
 //!HEIGHT conv_{prev_name}_p{in_start}.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > *\n"""
+//!WHEN {when}\n"""
 
     # define functions for inputs (textures)
     for i in range(in_start, in_end):
@@ -177,16 +178,15 @@ def get_conv_shader(W, b, out_group, name, prev_name, relu, skip_name, in_start,
         # Add skip connection
         if skip_name is not None:
             code += f"    result += conv_{skip_name}_p{out_group}_texOff(vec2(0.0, 0.0));\n"
-
-    # Add relu
-    if relu: code += "    result = max(result, 0.0);\n"
+        # Add relu
+        if relu: code += "    result = max(result, 0.0);\n"
 
     code += "    return result;\n}\n"
     return code
 
 
 # First conv - reads from MAIN
-def get_conv_shader_MAIN(W, b, out_group, name):
+def get_conv_shader_MAIN(W, b, out_group, name, when):
     code = f"""//!DESC {name} Conv3x3 part {out_group}
 //!HOOK MAIN
 //!BIND MAIN
@@ -194,7 +194,7 @@ def get_conv_shader_MAIN(W, b, out_group, name):
 //!WIDTH MAIN.w
 //!HEIGHT MAIN.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > *
+//!WHEN {when}
 #define get_0(x_off, y_off) MAIN_texOff(vec2(x_off, y_off))
 vec4 hook() {{
     vec4 result = vec4(0.0);
@@ -205,7 +205,7 @@ vec4 hook() {{
     return code
 
 
-def get_conv3x3(W, name, prev_name, relu=False, skip_name=None, chunk_size=8):
+def get_conv3x3(W, name, prev_name, relu=False, skip_name=None, chunk_size=8, when=None):
     weight = W[f'{name}.weight']
     bias = W[f'{name}.bias']
 
@@ -219,10 +219,13 @@ def get_conv3x3(W, name, prev_name, relu=False, skip_name=None, chunk_size=8):
 
     num_shaders = int(ceil(output_ch / 4))  # num_ouput_groups
 
+    if when is None:
+        when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > +"
+
     code = ""
     for i in range(num_shaders):
         if prev_name is None:
-            code += get_conv_shader_MAIN(weight, bias, i, name)
+            code += get_conv_shader_MAIN(weight, bias, i, name, when)
         else:
             num_in_groups = int(ceil(input_ch / 4))
             num_chunks = int(ceil(num_in_groups / chunk_size))
@@ -235,7 +238,7 @@ def get_conv3x3(W, name, prev_name, relu=False, skip_name=None, chunk_size=8):
                 prev_in_start = (chunk_idx - 1) * chunk_size
 
                 code += get_conv_shader(weight, bias, i, name, prev_name, relu, skip_name, in_start, in_end,
-                                        is_first, is_last, prev_in_start)
+                                        is_first, is_last, prev_in_start, when)
 
     return code
 
@@ -275,7 +278,7 @@ and add to upscaled image       vec3 final_output = MAIN_tex(MAIN_pos).rgb + res
 """
 
 
-def get_pixel_shuffle_x2(prev_name):
+def get_pixel_shuffle_x2(prev_name, when):
     prev_name = prev_name.replace(".", "_")
 
     code = f"""//!DESC PixelShuffle x2
@@ -286,7 +289,7 @@ def get_pixel_shuffle_x2(prev_name):
 //!WIDTH conv_{prev_name}_p0.w 2 *
 //!HEIGHT conv_{prev_name}_p0.h 2 *
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > *
+//!WHEN {when}
 vec4 hook() {{
     ivec2 pos = ivec2(gl_FragCoord.xy);
 
@@ -309,7 +312,7 @@ vec4 hook() {{
     return code
 
 
-def get_pixel_shuffle_x3(prev_name):
+def get_pixel_shuffle_x3(prev_name, when):
     prev_name = prev_name.replace(".", "_")
 
     # 3x3 * 3 channels = 27 output channels => ceil(27/4) = 7 textures (p0..p6)
@@ -317,12 +320,12 @@ def get_pixel_shuffle_x3(prev_name):
     code = f"""//!DESC PixelShuffle x3
 //!HOOK MAIN
 //!BIND MAIN
-{chr(10).join(f"//!BIND conv_{prev_name}_p{i}" for i in range(7))}
+{"\n".join(f"//!BIND conv_{prev_name}_p{i}" for i in range(7))}
 //!SAVE MAIN
 //!WIDTH conv_{prev_name}_p0.w 3 *
 //!HEIGHT conv_{prev_name}_p0.h 3 *
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 2.2 > OUTPUT.h MAIN.h / 2.2 > *
+//!WHEN {when}
 vec4 hook() {{
     ivec2 pos = ivec2(gl_FragCoord.xy);
 
@@ -362,7 +365,7 @@ vec4 hook() {{
     return code
 
 
-def get_pixel_shuffle_x4(prev_name):
+def get_pixel_shuffle_x4(prev_name, when):
     prev_name = prev_name.replace(".", "_")
 
     # 4x4 * 3 channels = 48 output channels => ceil(48/4) = 12 textures (p0..p11)
@@ -375,7 +378,7 @@ def get_pixel_shuffle_x4(prev_name):
 //!WIDTH conv_{prev_name}_p0.w 4 *
 //!HEIGHT conv_{prev_name}_p0.h 4 *
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 3.2 > OUTPUT.h MAIN.h / 3.2 > *
+//!WHEN {when}
 vec4 hook() {{
     ivec2 pos = ivec2(gl_FragCoord.xy);
 
@@ -423,20 +426,40 @@ vec4 hook() {{
     return code
 
 
+# Get upscale block for 2x scale (shuffle conv + pixel shuffle)
+def get_upscale_block_x2(W, prev_name):
+    final_conv_name = f"upscale_block_2.0"
+    when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > + OUTPUT.w MAIN.w / 2.2 < OUTPUT.h MAIN.h / 2.2 < + *"
+    return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
+            get_pixel_shuffle_x2(prev_name=final_conv_name, when=when))
+
+
+def get_upscale_block_x3(W, prev_name):
+    final_conv_name = f"upscale_block_3.0"
+    when = "OUTPUT.w MAIN.w / 2.2 >= OUTPUT.h MAIN.h / 2.2 >= + OUTPUT.w MAIN.w / 3.2 < OUTPUT.h MAIN.h / 3.2 < + *"
+    return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
+            get_pixel_shuffle_x3(prev_name=final_conv_name, when=when))
+
+
+def get_upscale_block_x4(W, prev_name):
+    final_conv_name = f"upscale_block_4.0"
+    when = "OUTPUT.w MAIN.w / 3.2 >= OUTPUT.h MAIN.h / 3.2 >= +"
+    return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
+            get_pixel_shuffle_x4(prev_name=final_conv_name, when=when))
+
+
 ##############################################
 
 if __name__ == "__main__":
-    checkpoint_path = Path("checkpoints/SR_FastEDSR_3x_2_64.pth")
-    UPSCALE_FACTOR = 3
+    checkpoint_path = get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32_s.pth")
 
-    output_path_2 = Path(f"exports/glsl/{checkpoint_path.stem}.glsl")
+    output_path_2 = get_project_root(f"exports/glsl/{checkpoint_path.stem}.glsl")
     output_path_3 = Path(f"C:/Users/User/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
     output_path = Path("C:/Users/User/Tools/mpv/shaders/current.glsl")
 
     output_path_2.parent.mkdir(parents=True, exist_ok=True)
 
     model, model_config = load_model_from_checkpoint(checkpoint_path, "cpu")
-    model.half()
 
     print_model_layers(model)
     W = get_weights_from_model(model)
@@ -459,22 +482,16 @@ if __name__ == "__main__":
         # Update the tail pointer
         last_layer_name = layer2
 
-    # Final convolution before shuffle
-    final_conv_name = f"net.{nb + 1}"
-    code += get_conv3x3(W, name=final_conv_name, prev_name=last_layer_name)
-    # PixelShuffle
-    if UPSCALE_FACTOR == 2:
-        code += get_pixel_shuffle_x2(final_conv_name)
-    elif UPSCALE_FACTOR == 3:
-        code += get_pixel_shuffle_x3(final_conv_name)
-    elif UPSCALE_FACTOR == 4:
-        code += get_pixel_shuffle_x4(final_conv_name)
+    # Upscale blocks
+    code += get_upscale_block_x2(W, prev_name=last_layer_name)
+    code += get_upscale_block_x3(W, prev_name=last_layer_name)
+    code += get_upscale_block_x4(W, prev_name=last_layer_name)
 
     output_path.write_text(code)
     output_path_2.write_text(code)
     output_path_3.write_text(code)
 
-    # exit()
+    exit()
 
     subprocess.run(["powershell", "-Command",
-                    'rm C:\\Users\\User\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\User\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-360p50.mp4 '])
+                    'rm C:\\Users\\User\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\User\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-240p50.mp4 '])

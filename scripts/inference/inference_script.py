@@ -8,17 +8,18 @@ from torchvision.utils import save_image
 from models import RegularModel
 from utils.checkpoints import load_model_from_checkpoint
 from utils.model_utils import tile_forward
+from utils.path import get_checkpoints_path, get_project_root
 
 # Inferenca svih slika iz inference/input foldera za izabrani checkpoint ili metod
 
-CHECKPOINT_PATH: Path = Path("checkpoints/SR_FastEDSR_jpeg_4_64_s.pth")
+CHECKPOINT_PATH: Path = get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_s.pth")
 
 USE_METHOD = False
 METHOD: Literal['nearest', 'bilinear', 'bicubic', 'lanczos'] = "bicubic"
 UPSCALE_FACTOR = 2
 
-INPUT_DIR: Path = Path("inference/input")
-OUTPUT_DIR: Path = Path("inference/output")
+INPUT_DIR: Path = get_project_root("inference/input")
+OUTPUT_DIR: Path = get_project_root("inference/output")
 
 #####################################################
 

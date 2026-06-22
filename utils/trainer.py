@@ -1,14 +1,14 @@
 import sys
-from os.path import exists
-from pathlib import Path
 
-from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from datasets import get_training_set, get_test_set, TrainCollateFn
 from utils.metrics import SSIM
 from utils.model_utils import tile_forward
+from utils.path import get_checkpoints_path
 from utils.plot import plot_training_history
-from datasets import get_training_set, get_test_set, TrainCollateFn
 
 
 class Trainer:
@@ -103,8 +103,8 @@ class Trainer:
         return self.metrics_ssim.compute().item()
 
     def load_checkpoint(self):
-        path = f"checkpoints/{self.config['model']['checkpoint_name']}_latest.pth"
-        if not exists(path):
+        path = get_checkpoints_path(f"{self.upscale_factor}x/{self.config['model']['checkpoint_name']}_latest.pth")
+        if not path.exists():
             print("No checkpoint to load")
             return
         checkpoint = torch.load(path, map_location=self.device)
@@ -117,7 +117,7 @@ class Trainer:
         print(f"Resumed from epoch {checkpoint['epoch']}")
 
     def save_checkpoint(self, type=""):
-        path = Path(f"checkpoints/{self.config['model']['checkpoint_name']}{type}.pth")
+        path = get_checkpoints_path(f"{self.upscale_factor}x/{self.config['model']['checkpoint_name']}{type}.pth")
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             'epoch': self.epoch,
@@ -131,6 +131,7 @@ class Trainer:
         print(f"Checkpoint saved to {path}")
 
     def train(self):
+        print(f"Training model {self.config['model']['checkpoint_name']}")
         self.load_checkpoint()
 
         while self.epoch <= self.epochs:
