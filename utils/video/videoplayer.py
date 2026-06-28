@@ -7,11 +7,22 @@ from .videostream import VideoStream
 
 
 class VideoPlayer:
-    def __init__(self, video_path, upscale_fn):
+    def __init__(self, video_path):
         self.stream = VideoStream(video_path)
+        self.upscale_fn = None
+
+    @property
+    def size(self):
+        return self.stream.frame_size
+
+    def set_upscale_fn(self, upscale_fn):
         self.upscale_fn = upscale_fn
+        return self
 
     def play(self):
+        if self.upscale_fn is None:
+            return
+
         self.stream.start()
 
         frame_times = deque(maxlen=20)  # for FPS avg calculation

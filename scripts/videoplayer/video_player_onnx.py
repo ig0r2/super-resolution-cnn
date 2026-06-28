@@ -8,22 +8,22 @@ from utils.video.export import export_onnx
 from utils.video.model_utils import TileProcessor
 from utils.video.videoplayer import VideoPlayer
 
-MODEL = "2x/SR_RFDN_2x_2_64"
+MODEL = "multiscale/SR_FastEDSR_jpeg_4_256"
 VIDEO_PATH = get_project_root("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
-INPUT_SIZE = (480, 854)
-TILED = True
+TILED = False
 TILE_SIZE = 256
 RUNTYPE: Runtype = 'onnxruntime-directml'
 
 ################################################
 
+# create player
+player = VideoPlayer(VIDEO_PATH)
 
-if TILED:
-    INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
+# get frame size for model input
+INPUT_SIZE = (TILE_SIZE, TILE_SIZE) if TILED else player.size
 
 checkpoint_name = MODEL.split("/", 1)[-1]
-
 model_path = get_project_root(
     f"exports/onnx/{checkpoint_name}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.onnx")
 
@@ -37,6 +37,7 @@ if not model_path.exists():
         print(f"Checkpoint for {MODEL} doesnt exit")
         exit()
     model, _ = load_model_from_checkpoint(checkpoint_path, "cpu")
+    model.upscale_factor = UPSCALE_FACTOR
     model.half()
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,7 +75,7 @@ else:
         return infer(frame)
 
 # Start VideoPlayer
-VideoPlayer(video_path=VIDEO_PATH, upscale_fn=upscale).play()
+player.set_upscale_fn(upscale).play()
 
 ##########################
 # ZA INTEL

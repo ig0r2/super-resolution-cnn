@@ -8,20 +8,21 @@ from utils.video.export import export_trt
 from utils.video.model_utils import TileProcessorTorch
 from utils.video.videoplayer import VideoPlayer
 
-MODEL = "multiscale/SR_FastEDSR_jpeg_4_32"
+MODEL = "multiscale/SR_RFDN_jpeg_2_256_GAN"
 VIDEO_PATH = get_project_root("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
-INPUT_SIZE = (480, 854)
 TILED = False
 TILE_SIZE = 256
 
 ################################################
 
-if TILED:
-    INPUT_SIZE = (TILE_SIZE, TILE_SIZE)
+# create player
+player = VideoPlayer(VIDEO_PATH)
+
+# get frame size for model input
+INPUT_SIZE = (TILE_SIZE, TILE_SIZE) if TILED else player.size
 
 checkpoint_name = MODEL.split("/", 1)[-1]
-
 model_path = get_project_root(
     f"exports/trt/{checkpoint_name}_{INPUT_SIZE[0]}x{INPUT_SIZE[1]}_{UPSCALE_FACTOR}x_cv2.pt2")
 
@@ -35,6 +36,7 @@ if not model_path.exists():
         print(f"Checkpoint for {MODEL} doesnt exit")
         exit()
     model, _ = load_model_from_checkpoint(checkpoint_path, "cpu")
+    model.upscale_factor = UPSCALE_FACTOR
     model.half()
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,4 +66,4 @@ else:
         return infer(frame_gpu).cpu().numpy()
 
 # Start VideoPlayer
-VideoPlayer(video_path=VIDEO_PATH, upscale_fn=upscale).play()
+player.set_upscale_fn(upscale).play()
