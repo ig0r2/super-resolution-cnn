@@ -9,7 +9,7 @@ from torchvision.transforms import v2
 
 from models import RegularModel
 from utils.checkpoints import load_model_from_checkpoint
-from utils.metrics import SSIM, PSNR
+from utils.metrics import SSIM, PSNR, LPIPS
 from utils.model_utils import tile_forward
 from utils.path import get_project_root
 
@@ -32,6 +32,7 @@ class ImageComparison:
         self.hr_image = decode_image(str(hr_path)).unsqueeze(0).float().to(self.device)
         self.ssim = SSIM(device=device, data_range=255.0)
         self.psnr = PSNR(device=device, data_range=255.0)
+        # self.lpips = LPIPS(device=device)
 
     def proccess_method(self, method):
         model = RegularModel(method, self.upscale_factor)
@@ -41,6 +42,7 @@ class ImageComparison:
 
         ssim = self.ssim(output, self.hr_image)
         psnr = self.psnr(output, self.hr_image)
+        # lpips = self.lpips(output, self.hr_image)
 
         output = v2.functional.to_pil_image(output.squeeze().cpu().div(255))
         print('Processed:', method)

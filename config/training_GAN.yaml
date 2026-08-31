@@ -1,0 +1,38 @@
+defaults:
+  mode: gan
+  multiscale: false
+  jpeg_degradation: false
+
+  training:
+    patch_size: 128
+    batch_size: 16
+    epochs: 400
+    lr: 0.0001
+    scheduler_milestones: [ 50, 100, 200, 300 ]
+    validate_every: 20
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
+
+models:
+#  - checkpoint_name: R_FastEDSR_4x_4_64_GAN
+#    pretrain_checkpoint: 4x/SR_FastEDSR_jpeg_4_256.pth
+#    params:
+#      upscale_factor: 4
+
+#  - checkpoint_name: SR_FastEDSR_4x_4_128_GAN
+#    pretrain_checkpoint: 4x/SR_FastEDSR_4x_4_128.pth
+#    params:
+#      upscale_factor: 4
+
+#  - checkpoint_name: SR_FastEDSR_4x_4_256_GAN
+#    pretrain_checkpoint: 4x/SR_FastEDSR_4x_4_256.pth
+#    params:
+#      upscale_factor: 4
+
+#  - checkpoint_name: SR_RFDN_4x_4_48_GAN
+#    pretrain_checkpoint: 4x/SR_RFDN_4x_4_48.pth
+#    params:
+#      upscale_factor: 4

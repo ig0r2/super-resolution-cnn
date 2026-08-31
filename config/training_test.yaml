@@ -1,0 +1,48 @@
+# to test the training script
+defaults:
+  mode: psnr
+  multiscale: false
+  jpeg_degradation: false
+
+  training:
+    patch_size: 96
+    batch_size: 16
+    epochs: 800
+    lr: 0.0001
+    scheduler_milestones: [ 300, 600 ]
+    validate_every: 50
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
+
+models:
+  - name: SR_EDSR
+    epochs: 2
+    checkpoint_name: 0TEST_SR_EDSR_4x_0_16
+    params:
+      upscale_factor: 4
+      num_blocks: 0
+      nf: 16
+
+  - name: SR_EDSR_Multi
+    epochs: 2
+    multiscale: true
+    checkpoint_name: 0TEST_SR_EDSR_0_16
+    params:
+      num_blocks: 0
+      nf: 16
+
+  - checkpoint_name: 0TEST_SR_EDSR_4x_0_16_GAN
+    pretrain_checkpoint: 4x/0TEST_SR_EDSR_4x_0_16.pth
+    mode: gan
+    epochs: 5
+    params:
+      upscale_factor: 4
+
+  - checkpoint_name: 0TEST_SR_EDSR_0_16_GAN
+    pretrain_checkpoint: multiscale/0TEST_SR_EDSR_0_16.pth
+    mode: gan
+    multiscale: true
+    epochs: 5

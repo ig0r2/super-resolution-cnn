@@ -1,91 +1,101 @@
-patch_size: 192
-batch_size: 16
-epochs: 3500
-lr: 0.0001
-scheduler_step_epochs: 1000
-validate_every: 200
-num_workers: 2
-train_preload: True
-val_preload: True
+defaults:
+  mode: psnr
+  multiscale: true
+  jpeg_degradation: true
+
+  training:
+    patch_size: 192
+    batch_size: 16
+    epochs: 3500
+    lr: 0.0001
+    scheduler_milestones: [ 1000, 2000, 3000 ]
+    validate_every: 200
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
 
 models:
-#    - model:
-#        name: SR_FastEDSR_Multi
-#        checkpoint_name: SR_FastEDSR_jpeg_4_32_s_384
-#        params:
-#          num_blocks: 4
-#          nf: 32
+  - name: SR_RFDN_Multi
+    checkpoint_name: SR_RFDN_jpeg_2_128
+    params:
+      num_blocks: 2
+      nf: 128
+  - name: SR_RFDN_Multi
+    checkpoint_name: SR_RFDN_jpeg_2_256
+    params:
+      num_blocks: 2
+      nf: 256
+  - name: SR_RFDN_Multi
+    checkpoint_name: SR_RFDN_jpeg_4_128
+    params:
+      num_blocks: 4
+      nf: 128
 
-
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_2_8_s
-#      params:
-#        num_blocks: 2
-#        nf: 8
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_2_16_s
-#      params:
-#        num_blocks: 2
-#        nf: 16
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_32_s
-#      params:
-#        num_blocks: 4
-#        nf: 32
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_64_s
-#      params:
-#        num_blocks: 4
-#        nf: 64
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_128_s
-#      params:
-#        num_blocks: 4
-#        nf: 128
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_2_64
-#      params:
-#        num_blocks: 2
-#        nf: 64
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_32
-#      params:
-#        num_blocks: 4
-#        nf: 32
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_48
-#      params:
-#        num_blocks: 4
-#        nf: 48
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_64
-#      params:
-#        num_blocks: 4
-#        nf: 64
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_128
-#      params:
-#        num_blocks: 4
-#        nf: 128
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_4_256
-#      params:
-#        num_blocks: 4
-#        nf: 256
-#  - model:
-#      name: SR_FastEDSR_Multi
-#      checkpoint_name: SR_FastEDSR_jpeg_6_32
-#      params:
-#        num_blocks: 6
-#        nf: 32
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_32_s_384
+#    patch_size: 384
+#    params:
+#      num_blocks: 4
+#      nf: 32
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_2_8_s
+#    params:
+#      num_blocks: 2
+#      nf: 8
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_2_16_s
+#    params:
+#      num_blocks: 2
+#      nf: 16
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_32_s
+#    params:
+#      num_blocks: 4
+#      nf: 32
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_64_s
+#    params:
+#      num_blocks: 4
+#      nf: 64
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_128_s
+#    params:
+#      num_blocks: 4
+#      nf: 128
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_2_64
+#    params:
+#      num_blocks: 2
+#      nf: 64
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_32
+#    params:
+#      num_blocks: 4
+#      nf: 32
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_48
+#    params:
+#      num_blocks: 4
+#      nf: 48
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_64
+#    params:
+#      num_blocks: 4
+#      nf: 64
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_128
+#    params:
+#      num_blocks: 4
+#      nf: 128
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_4_256
+#    params:
+#      num_blocks: 4
+#      nf: 256
+#  - name: SR_FastEDSR_Multi
+#    checkpoint_name: SR_FastEDSR_jpeg_6_32
+#    params:
+#      num_blocks: 6
+#      nf: 32

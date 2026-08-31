@@ -1,0 +1,41 @@
+defaults:
+  mode: gan
+  multiscale: true
+  jpeg_degradation: false
+
+  training:
+    patch_size: 96
+    batch_size: 16
+    epochs: 600
+    lr: 0.0001
+    scheduler_milestones: [ 100, 200, 300, 400, 500 ]
+    validate_every: 25
+
+  data:
+    num_workers: 2
+    train_preload: False
+    val_preload: False
+
+models:
+  - checkpoint_name: SR_RFDN_4_256_ESRGAN
+    pretrain_checkpoint: multiscale/SR_RFDN_4_256.pth
+
+#  - checkpoint_name: SR_FastEDSR_jpeg_4_64_ESRGAN
+#    jpeg_degradation: true
+#    pretrain_checkpoint: multiscale/SR_FastEDSR_jpeg_4_64.pth
+#
+#  - checkpoint_name: SR_RFDN_jpeg_2_128_ESRGAN
+#    jpeg_degradation: true
+#    patch_size: 192
+#    pretrain_checkpoint: multiscale/SR_RFDN_jpeg_2_128.pth
+
+#  - checkpoint_name: SR_RFDN_jpeg_2_256_GAN
+#    jpeg_degradation: true
+#    pretrain_checkpoint: multiscale/SR_RFDN_jpeg_2_256.pth
+
+#  - checkpoint_name: SR_FastEDSR_jpeg_4_256_GAN
+#    jpeg_degradation: true
+#    pretrain_checkpoint: multiscale/SR_FastEDSR_jpeg_4_256.pth
+
+#  - checkpoint_name: SR_RFDN_2_96_GAN
+#    pretrain_checkpoint: multiscale/SR_RFDN_2_96.pth

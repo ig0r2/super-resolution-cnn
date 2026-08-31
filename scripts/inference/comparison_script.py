@@ -11,9 +11,9 @@ if __name__ == "__main__":
     LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X2/0879x2.png')
     HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
     #
-    CROP_BOX = (590, 290, 75, 75)  # (x, y, w, h)
-    LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X2/0887x2.png')
-    HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0887.png')
+    # CROP_BOX = (590, 290, 75, 75)  # (x, y, w, h)
+    # LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X2/0887x2.png')
+    # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0887.png')
 
     # CROP_BOX = (372, 468, 48, 48)  # (x, y, w, h)
     # LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X2/0873x2.png')
@@ -44,23 +44,36 @@ if __name__ == "__main__":
     # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
 
     UPSCALE_FACTOR = 2
-    METHODS = ['nearest', 'bilinear', 'bicubic', 'lanczos']
+    METHODS = [
+        'nearest',
+        # 'bilinear',
+        'bicubic',
+        'lanczos'
+    ]
     CHECKPOINT_PATHS = [
-        # get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"),
-        get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
+        get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"),
+        # get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
         get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_4_256_GAN.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
-        get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"),
         get_checkpoints_path("multiscale/SR_RFDN_2_48.pth"),
-        get_checkpoints_path("multiscale/SR_IMDN_2_48.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_48.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_IMDN_2_48.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_48.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
         get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256_GAN.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128_GAN.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256_GAN.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_4_256_ESRGAN.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_GAN.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_ESRGAN.pth"),
     ]
 
     ############### 3 #############################
@@ -71,15 +84,19 @@ if __name__ == "__main__":
     # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
 
     ############### 4 #############################
-    UPSCALE_FACTOR = 4
+    # UPSCALE_FACTOR = 4
+    #
+    # CROP_BOX = (252, 182, 48, 48)  # (x, y, w, h)
+    # LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X4/0879x4.png')
+    # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
+    #
+    # CROP_BOX = (220, 107, 48, 48)  # (x, y, w, h)
+    # LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X4/0823x4.png')
+    # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0823.png')
 
-    CROP_BOX = (252, 182, 48, 48)  # (x, y, w, h)
-    LR_PATH = get_data_path('DIV2K/DIV2K_valid_LR_bicubic/X4/0879x4.png')
-    HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
-
-    CROP_BOX = (252, 182, 48, 48)  # (x, y, w, h)
-    LR_PATH = get_project_root('inference/comparison/input/0879x4_85.jpg')
-    HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
+    # CROP_BOX = (252, 182, 48, 48)  # (x, y, w, h)
+    # LR_PATH = get_project_root('inference/comparison/input/0879x4_85.jpg')
+    # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
 
     ##################################################
 

@@ -1,0 +1,36 @@
+defaults:
+  mode: psnr
+  multiscale: false
+  jpeg_degradation: false
+
+  training:
+    patch_size: 128
+    batch_size: 16
+    epochs: 500
+    lr: 0.0002
+    scheduler_milestones: [ 250, 450, 1000, 1400 ]
+    validate_every: 20
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
+
+models:
+  - name: SR_ESRGAN
+    checkpoint_name: SR_ESRGAN_4x_23_64_32
+    params:
+      upscale_factor: 4
+      nf: 64
+      growth_channels: 32
+      num_blocks: 23
+
+  - checkpoint_name: SR_ESRGAN_4x_23_64_32_GAN
+    pretrain_checkpoint: 4x/SR_ESRGAN_4x_23_64_32.pth
+    params:
+      upscale_factor: 4
+    mode: gan
+    training:
+      epochs: 400
+      lr: 0.0001
+      scheduler_milestones: [ 50, 100, 200, 300 ]

@@ -21,3 +21,5 @@ from .edsr.fast_edsr import SR_FastEDSR, SR_FastEDSR_Multi
 from .vdsr.model import SR_VDSR
 from .srcnn.model import SR_SRCNN
 from .regular_models import RegularModel
+from .esrgan.rrdb import SR_ESRGAN
+from .esrgan.discriminator import VGGDiscriminator

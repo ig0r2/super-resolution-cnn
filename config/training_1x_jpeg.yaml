@@ -1,29 +1,39 @@
-patch_size: 192
-batch_size: 16
-epochs: 3500
-lr: 0.0001
-scheduler_step_epochs: 1000
-validate_every: 200
-num_workers: 4
-train_preload: True
-val_preload: True
+defaults:
+  mode: psnr
+  multiscale: false
+  jpeg_degradation: true
+
+  training:
+    patch_size: 192
+    batch_size: 16
+    epochs: 3500
+    lr: 0.0001
+    scheduler_milestones: [ 1000, 2000, 3000 ]
+    validate_every: 200
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
 
 models:
-#  - model:
-#      name: SR_FastEDSR_1x
-#      checkpoint_name: SR_FastEDSR_1x_jpeg_4_32_s
-#      params:
-#        num_blocks: 4
-#        nf: 32
-#  - model:
-#      name: SR_FastEDSR_1x
-#      checkpoint_name: SR_FastEDSR_1x_jpeg_4_64_s
-#      params:
-#        num_blocks: 4
-#        nf: 64
-#  - model:
-#      name: SR_FastEDSR_1x
-#      checkpoint_name: SR_FastEDSR_1x_jpeg_4_32
-#      params:
-#        num_blocks: 4
-#        nf: 32
+  - name: SR_FastEDSR_1x
+    checkpoint_name: SR_FastEDSR_1x_jpeg_4_32_s
+    params:
+      num_blocks: 4
+      nf: 32
+      upscale_factor: 1
+
+  - name: SR_FastEDSR_1x
+    checkpoint_name: SR_FastEDSR_1x_jpeg_4_64_s
+    params:
+      num_blocks: 4
+      nf: 64
+      upscale_factor: 1
+
+  - name: SR_FastEDSR_1x
+    checkpoint_name: SR_FastEDSR_1x_jpeg_4_32
+    params:
+      num_blocks: 4
+      nf: 32
+      upscale_factor: 1
