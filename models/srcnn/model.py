@@ -17,7 +17,9 @@ class SR_SRCNN(nn.Module):
         self.upscale_factor = upscale_factor
         self.net = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=9, padding=4),
+            nn.ReLU(inplace=True),
             nn.Conv2d(64, 32, kernel_size=1, padding=0),
+            nn.ReLU(inplace=True),
             nn.Conv2d(32, 3, kernel_size=5, padding=2),
         )
 
