@@ -109,7 +109,8 @@ class EvaluatorPerfVideo:
         if not output_path.exists():
             model = export_trt(VideoWrapperCV2(self.model), output_path, self.input_size)
         else:
-            model = torch.export.load(output_path).module()
+            import torch_tensorrt
+            model = torch_tensorrt.load(output_path).module()
 
         # Inference
         print(f"Using input shape: {self.input_size}")

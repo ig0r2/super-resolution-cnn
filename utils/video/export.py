@@ -12,7 +12,7 @@ def export_trt(model, path, input_size):
 
     compiled_model = torch_tensorrt.compile(
         model, inputs=[torch_tensorrt.Input(input_size, dtype=torch.float16)],
-        enabled_precisions={torch.float16})
+        enabled_precisions={torch.float16}, offload_module_to_cpu=True)
 
     torch_tensorrt.save(compiled_model, str(path))
 

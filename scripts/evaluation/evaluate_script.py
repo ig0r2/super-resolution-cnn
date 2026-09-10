@@ -18,25 +18,29 @@ from utils.path import get_results_path, get_logs_path, get_checkpoints_path
 
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[1, 2, 3, 4] = 2
-    TEST_SET: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"] = "DIV2K"
+    TEST_SET: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"] = "Set5"
 
     USE_HALF = True
     EVALUATE_METRICS = True
     JPEG_DEGRADATION = False
 
+    EVALUATE_WITH_TILED = False
+
     EVALUATE_PERFORMANCE_720p = False
     EVALUATE_PERFORMANCE_480p = False
     USE_TENSORRT = True
 
+    SKIP_EVALUATED = True
+
     CHECKPOINT_PATHS = [
-        # get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_4_256_GAN.pth"),
     ]
 
     METHODS = [
-        # 'nearest',
-        # 'bilinear',
-        # 'bicubic',
-        # 'lanczos'
+        'nearest',
+        'bilinear',
+        'bicubic',
+        'lanczos'
     ]
 
     #####################################################
@@ -51,7 +55,8 @@ if __name__ == "__main__":
     if EVALUATE_METRICS:
         test_set = get_test_set(name=TEST_SET, upscale_factor=UPSCALE_FACTOR, preload=len(CHECKPOINT_PATHS) > 1,
                                 normalize=False, jpeg_degradation=JPEG_DEGRADATION)
-        evaluator = Evaluator(test_set=test_set, device=device, use_half=USE_HALF)
+        evaluator = Evaluator(test_set=test_set, device=device, use_half=USE_HALF, upscale_factor=UPSCALE_FACTOR,
+                              use_tiled=EVALUATE_WITH_TILED)
 
     # Combine checkpoints and methods
     items_to_evaluate = [{'path': p, 'is_method': False} for p in CHECKPOINT_PATHS]
@@ -64,7 +69,10 @@ if __name__ == "__main__":
         is_method = item['is_method']
         model_name = item['path'].stem if not is_method else item['method']
 
-        do_metrics, do_720p, do_480p = get_columns_to_evaluate(csv_path, model_name)
+        if SKIP_EVALUATED:
+            do_metrics, do_720p, do_480p = get_columns_to_evaluate(csv_path, model_name)
+        else:
+            do_metrics, do_720p, do_480p = True, True, True
 
         if not any([do_metrics, do_720p, do_480p]):
             print(f"Skipping {model_name}")

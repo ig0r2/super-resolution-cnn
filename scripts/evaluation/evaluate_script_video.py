@@ -5,7 +5,7 @@ from typing import Literal
 import torch
 
 from utils.checkpoints import load_model_from_checkpoint
-from utils.csv_utils import save_to_csv
+from utils.csv_utils import save_to_csv, is_model_evaluated
 from utils.path import get_logs_path, get_results_path, get_checkpoints_path
 from utils.video.evaluator_perf_video import EvaluatorPerfVideo, Runtype
 from utils.logger import Logger
@@ -16,8 +16,16 @@ if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[2, 3, 4] = 2
     RUNTYPE: Runtype = "tensorrt"
 
+    EVALUATE_PERFORMANCE_720p = True
+    EVALUATE_PERFORMANCE_480p = True
+
+    EVALUATE_TILING_128 = True
+    EVALUATE_TILING_256 = True
+
+    SKIP_EVALUATED = True
+
     CHECKPOINT_PATHS = [
-        get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
+        # get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
         # get_checkpoints_path("multiscale/SR_EDSR_4_52.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_2_48.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_4_48.pth"),
@@ -170,6 +178,10 @@ if __name__ == "__main__":
     ]
 
     #####################################################
+    if len(CHECKPOINT_PATHS) == 0:
+        CHECKPOINT_PATHS = sorted(p for pattern in (f"{UPSCALE_FACTOR}x/*.pth", "multiscale/*.pth")
+                                  for p in get_checkpoints_path().glob(pattern)
+                                  if not p.name.endswith("_latest.pth"))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device)
@@ -178,6 +190,12 @@ if __name__ == "__main__":
 
     for checkpoint_path in CHECKPOINT_PATHS:
         checkpoint_path = Path(checkpoint_path)
+        model_name = checkpoint_path.stem
+
+        if SKIP_EVALUATED and is_model_evaluated(csv_path, model_name):
+            print(f"Skipping {model_name}")
+            continue
+
         log_path = get_logs_path(f"evaluation/eval_{checkpoint_path.stem}.txt")
 
         with (Logger(log_path)):
@@ -197,24 +215,32 @@ if __name__ == "__main__":
             # Performance
             perf_results = {'720p': "", '480p': "", '720p (128x128)': "", '480p (128x128)': "", '720p (256x256)': "",
                             '480p (256x256)': ""}
-            perf_results['720p'] = (
-                EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280),
-                                   upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
-            perf_results['480p'] = (
-                EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854),
-                                   upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
-            perf_results['720p (128x128)'] = (
-                EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280), tiled=True,
-                                   tile_size=128, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
-            perf_results['480p (128x128)'] = (
-                EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854), tiled=True,
-                                   tile_size=128, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
-            perf_results['720p (256x256)'] = (
-                EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280), tiled=True,
-                                   tile_size=256, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
-            perf_results['480p (256x256)'] = (
-                EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854), tiled=True,
-                                   tile_size=256, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
+            if EVALUATE_PERFORMANCE_720p:
+                perf_results['720p'] = (
+                    EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280),
+                                       upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
+            if EVALUATE_PERFORMANCE_480p:
+                perf_results['480p'] = (
+                    EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854),
+                                       upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
+            if EVALUATE_TILING_128:
+                if EVALUATE_PERFORMANCE_720p:
+                    perf_results['720p (128x128)'] = (
+                        EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280), tiled=True,
+                                           tile_size=128, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
+                if EVALUATE_PERFORMANCE_480p:
+                    perf_results['480p (128x128)'] = (
+                        EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854), tiled=True,
+                                           tile_size=128, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
+            if EVALUATE_TILING_256:
+                if EVALUATE_PERFORMANCE_720p:
+                    perf_results['720p (256x256)'] = (
+                        EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(720, 1280), tiled=True,
+                                           tile_size=256, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
+                if EVALUATE_PERFORMANCE_480p:
+                    perf_results['480p (256x256)'] = (
+                        EvaluatorPerfVideo(model=copy.deepcopy(model), name=name, image_size=(480, 854), tiled=True,
+                                           tile_size=256, upscale_factor=UPSCALE_FACTOR, runtype=RUNTYPE).evaluate())
 
             # Save to CSV
             save_to_csv({

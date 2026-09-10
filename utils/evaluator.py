@@ -5,6 +5,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from utils.metrics import PSNR, SSIM, LPIPS
+from utils.model_utils import tile_forward
 
 
 class Evaluator:
@@ -14,11 +15,12 @@ class Evaluator:
     Metrike se racunaju tako sto se prvo pretvori output modela u pixel reprezentaciju opseg [0-255]
     """
 
-    def __init__(self, test_set, device, model=None, use_half=False, upscale_factor=2):
+    def __init__(self, test_set, device, model=None, use_half=False, upscale_factor=2, use_tiled=False):
         self.model = model
         self.device = device
         self.use_half = use_half
         self.upscale_factor = upscale_factor
+        self.use_tiled = use_tiled
 
         self.test_loader = DataLoader(dataset=test_set, num_workers=2, batch_size=1, persistent_workers=True,
                                       pin_memory=True)
@@ -54,7 +56,10 @@ class Evaluator:
                 else:
                     input_fp, target_fp = input.float().div(255.0), target.float().div(255.0)
 
-                output_fp = self.model(input_fp)
+                if self.use_tiled:
+                    output_fp = tile_forward(self.model, self.upscale_factor, input_fp, tile_size=256, overlap=8)
+                else:
+                    output_fp = self.model(input_fp)
                 output_fp = output_fp.clip(0, 1)
                 output_int = output_fp.mul(255).round().float()
 
