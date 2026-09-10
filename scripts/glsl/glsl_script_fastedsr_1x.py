@@ -25,9 +25,12 @@ the input is split into "chunks" and the partial sums are accumulated by each ne
 """
 
 import subprocess
+import sys
 from math import ceil
 from pathlib import Path
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from utils.checkpoints import load_model_from_checkpoint
 from utils.path import get_project_root, get_checkpoints_path

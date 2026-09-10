@@ -1,6 +1,9 @@
 import copy
+import sys
 from pathlib import Path
 from typing import Literal
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import torch
 
