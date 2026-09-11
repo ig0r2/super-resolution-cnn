@@ -53,3 +53,12 @@ def get_columns_to_evaluate(csv_path, model_name):
     needs_480p = row[list(perf_480p_cols)].isnull().any()
 
     return needs_metrics, needs_720p, needs_480p
+
+
+def is_model_evaluated(csv_path, model_name):
+    """Vraca True ako model_name vec ima red u CSV-u (bez obzira na kolone)."""
+    if not Path(csv_path).exists():
+        return False
+
+    df = pd.read_csv(csv_path)
+    return (df['model_name'] == model_name).any()
