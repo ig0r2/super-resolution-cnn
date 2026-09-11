@@ -19,6 +19,8 @@ defaults:
 models:
   - name: SR_SRCNN
     checkpoint_name: SR_SRCNN_2x
+    epochs: 1600
+    scheduler_milestones: [ 800, 1200 ]
     params:
       upscale_factor: 2
 
