@@ -83,19 +83,20 @@ class TileProcessor:
 class TileProcessorTorch:
     """Sadrzi logiku za ineferencu preko delova - preko torch (za tensorrt)"""
 
-    def __init__(self, upscale_factor, tile_size=256, overlap=8):
+    def __init__(self, upscale_factor, tile_size=256, overlap=8, dtype=torch.float16):
         self.initialized = False
         self.upscale_factor = upscale_factor
         self.tile_size = tile_size
         self.overlap = overlap
+        self.dtype = dtype
 
     def init(self, frame):
         h, w, c = frame.shape
         self.coords = _compute_coords(self.tile_size, self.overlap, h, w, self.upscale_factor)
         scaled_h = h * self.upscale_factor
         scaled_w = w * self.upscale_factor
-        self.output_acc = torch.zeros((scaled_h, scaled_w, c), dtype=torch.float16, device="cuda")
-        self.count_acc = torch.zeros((scaled_h, scaled_w, 1), dtype=torch.float16, device="cuda")
+        self.output_acc = torch.zeros((scaled_h, scaled_w, c), dtype=self.dtype, device="cuda")
+        self.count_acc = torch.zeros((scaled_h, scaled_w, 1), dtype=self.dtype, device="cuda")
         self.result = torch.empty((scaled_h, scaled_w, c), dtype=torch.uint8, device="cuda")
 
     def process_frame(self, frame, infer_fn):

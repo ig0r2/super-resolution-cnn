@@ -33,11 +33,17 @@ class EvaluatorPerfVideo:
     """
 
     def __init__(self, model, name, runtype: Runtype, image_size=(720, 1280), upscale_factor=2, tiled=False,
-                 tile_size=256, warmup_runs=10, iterations=100):
+                 tile_size=256, warmup_runs=10, iterations=100, use_fp32=False):
+        self.use_fp32 = use_fp32
+        self.torch_dtype = torch.float32 if use_fp32 else torch.float16
+        self.np_dtype = np.float32 if use_fp32 else np.float16
+        self.precision_suffix = "_fp32" if use_fp32 else ""
+
         self.model = model
         self.model.eval()
-        self.model.half()
+        self.model.to(self.torch_dtype)
         self.name = name
+        print(f"Using {'FP32' if use_fp32 else 'FP16'}")
 
         self.upscale_factor = upscale_factor
         self.tiled = tiled
@@ -63,17 +69,19 @@ class EvaluatorPerfVideo:
 
         # Export model
         output_path = get_project_root(
-            f"exports/onnx/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2.onnx")
+            f"exports/onnx/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2"
+            f"{self.precision_suffix}.onnx")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if not output_path.exists():
-            export_onnx(VideoWrapperCV2(self.model), output_path, self.input_size)
+            export_onnx(VideoWrapperCV2(self.model), output_path, self.input_size, use_fp32=self.use_fp32)
 
         if self.runtype == "onnxruntime-tensorrt":
-            providers = [('TensorrtExecutionProvider', {'trt_fp16_enable': True})]
+            providers = [('TensorrtExecutionProvider', {'trt_fp16_enable': not self.use_fp32})]
         elif self.runtype == "onnxruntime-cuda":
             providers = ['CUDAExecutionProvider']
         elif self.runtype == "onnxruntime-openvino":
-            providers = [('OpenVINOExecutionProvider', {"device_type": "GPU", "precision": "FP16"})]
+            providers = [('OpenVINOExecutionProvider',
+                          {"device_type": "GPU", "precision": "FP32" if self.use_fp32 else "FP16"})]
 
         # Load model
         ort_session = ort.InferenceSession(output_path, providers=providers)
@@ -83,7 +91,7 @@ class EvaluatorPerfVideo:
 
         # Define callback for model inference
         def infer(tile):
-            return ort_session.run(None, {"input": tile.astype(np.float16)})[0]
+            return ort_session.run(None, {"input": tile.astype(self.np_dtype)})[0]
 
         # Define callback for upscaling the frame
         if self.tiled:
@@ -104,10 +112,11 @@ class EvaluatorPerfVideo:
         torch.cuda.empty_cache()
 
         output_path = get_project_root(
-            f"exports/trt/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2.pt2")
+            f"exports/trt/{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2"
+            f"{self.precision_suffix}.pt2")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if not output_path.exists():
-            model = export_trt(VideoWrapperCV2(self.model), output_path, self.input_size)
+            model = export_trt(VideoWrapperCV2(self.model), output_path, self.input_size, use_fp32=self.use_fp32)
         else:
             import torch_tensorrt
             model = torch_tensorrt.load(output_path).module()
@@ -121,15 +130,16 @@ class EvaluatorPerfVideo:
 
         # Define callback for upscaling the frame
         if self.tiled:
-            tile_processor = TileProcessorTorch(self.upscale_factor, self.tile_size, overlap=8)
+            tile_processor = TileProcessorTorch(self.upscale_factor, self.tile_size, overlap=8,
+                                                dtype=self.torch_dtype)
 
             def upscale(frame):
-                frame_gpu = torch.from_numpy(frame).half().cuda()
+                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
                 return tile_processor.process_frame(frame_gpu, infer).cpu().numpy()
 
         else:
             def upscale(frame):
-                frame_gpu = torch.from_numpy(frame).half().cuda()
+                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
                 return infer(frame_gpu).cpu().numpy()
 
         return self._measuring_loop(upscale)
