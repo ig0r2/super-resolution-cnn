@@ -130,3 +130,13 @@ models:
     params:
       num_blocks: 4
       nf: 128
+  - name: SR_FastEDSR_Multi
+    checkpoint_name: SR_FastEDSR_4_256
+    params:
+      num_blocks: 4
+      nf: 256
+  - name: SR_FastEDSR_Multi
+    checkpoint_name: SR_FastEDSR_6_256
+    params:
+      num_blocks: 6
+      nf: 256

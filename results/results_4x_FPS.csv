@@ -45,3 +45,5 @@ SR_FastEDSR_2_64,199703,tensorrt,,203.50,,57.46,,142.75
 SR_FastEDSR_2_8,8911,tensorrt,,320.63,,55.31,,163.00
 SR_FastEDSR_4_128,1284567,tensorrt,,78.49,,47.79,,57.59
 SR_FastEDSR_4_16,31623,tensorrt,,289.15,,52.02,,147.06
+SR_FastEDSR_4_256,4928343,tensorrt,,26.58,,,,
+SR_FastEDSR_6_256,7288663,tensorrt,,18.34,,,,
