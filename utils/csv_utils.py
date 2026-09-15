@@ -3,11 +3,12 @@ from pathlib import Path
 import pandas as pd
 
 
-def save_to_csv(data, csv_path):
+def save_to_csv(data, csv_path, match_keys=('model_name',)):
     """
     Update or append evaluation data to a CSV file.
     :param data: Dictionary with evaluation metrics
     :param csv_path: Path to the CSV file
+    :param match_keys: Columns used to find an existing row to update (default: model_name only)
     """
     csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -16,7 +17,9 @@ def save_to_csv(data, csv_path):
 
     if csv_path.exists():
         df = pd.read_csv(csv_path, dtype=str)
-        mask = df['model_name'] == data['model_name']
+        mask = pd.Series(True, index=df.index)
+        for key in match_keys:
+            mask &= df[key] == str(data[key]) if key in df.columns else False
         if mask.any():
             for key, value in data.items():
                 if value != "" and key in df.columns:
@@ -55,10 +58,13 @@ def get_columns_to_evaluate(csv_path, model_name):
     return needs_metrics, needs_720p, needs_480p
 
 
-def is_model_evaluated(csv_path, model_name):
-    """Vraca True ako model_name vec ima red u CSV-u (bez obzira na kolone)."""
+def is_model_evaluated(csv_path, model_name, runtype=None):
+    """Vraca True ako model_name vec ima red u CSV-u (opciono i za isti runtype)."""
     if not Path(csv_path).exists():
         return False
 
-    df = pd.read_csv(csv_path)
-    return (df['model_name'] == model_name).any()
+    df = pd.read_csv(csv_path, dtype=str)
+    mask = df['model_name'] == model_name
+    if runtype is not None:
+        mask &= df['runtype'] == str(runtype)
+    return mask.any()

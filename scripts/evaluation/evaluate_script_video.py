@@ -48,7 +48,7 @@ if __name__ == "__main__":
         checkpoint_path = Path(checkpoint_path)
         model_name = checkpoint_path.stem
 
-        if SKIP_EVALUATED and is_model_evaluated(csv_path, model_name):
+        if SKIP_EVALUATED and is_model_evaluated(csv_path, model_name, RUNTYPE):
             print(f"Skipping {model_name}")
             continue
 
@@ -110,4 +110,4 @@ if __name__ == "__main__":
                 "params": total_params,
                 "runtype": RUNTYPE,
                 **perf_results,
-            }, csv_path)
+            }, csv_path, match_keys=('model_name', 'runtype'))
