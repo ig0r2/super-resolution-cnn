@@ -7,6 +7,7 @@ import torch
 from utils.video.evaluator_perf_video import VideoWrapperCV2
 from utils.video.export import export_onnx
 from utils.video.export_trt_engine import export_onnx_raw, get_raw_trt_engine, TRTRawRunner
+from utils.video.export_ncnn import export_ncnn, NCNNRunner
 from utils.video.model_utils import TileProcessor, TileProcessorTorch
 
 
@@ -117,3 +118,35 @@ class ONNXBackend:
         if self.tiled:
             return self.tile_processor.process_frame(frame, self._infer)
         return self._infer(frame)
+
+
+class NCNNBackend:
+    """ncnn-Vulkan backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
+
+    def __init__(self, checkpoint_path: Path, cache_dir: Path, tag: str, input_size, upscale_factor: int,
+                 tiled: bool = False, tile_size: int = 256):
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        param_path = cache_dir / f"{tag}.ncnn.param"
+        bin_path = cache_dir / f"{tag}.ncnn.bin"
+
+        if not param_path.exists():
+            model = _load_model(checkpoint_path, upscale_factor)
+            _log(f"Converting to ncnn ({input_size[0]}x{input_size[1]}) -> {param_path.name} ...")
+            t0 = time.perf_counter()
+            export_ncnn(model, cache_dir, tag, (input_size[0], input_size[1]))
+            _log(f"ncnn conversion done in {time.perf_counter() - t0:.1f}s")
+        else:
+            _log(f"Reusing cached ncnn model {param_path.name}")
+
+        self.runner = NCNNRunner(param_path, bin_path)
+
+        self.tiled = tiled
+        if tiled:
+            self.tile_processor = TileProcessor(upscale_factor=upscale_factor, tile_size=tile_size, overlap=8)
+
+        _log("NCNNBackend ready.")
+
+    def __call__(self, frame: np.ndarray) -> np.ndarray:
+        if self.tiled:
+            return self.tile_processor.process_frame(frame, self.runner)
+        return self.runner(frame)
