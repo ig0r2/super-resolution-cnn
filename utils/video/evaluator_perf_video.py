@@ -125,20 +125,18 @@ class EvaluatorPerfVideo:
 
         build_dir = get_project_root("exports/trt_raw")
         build_dir.mkdir(parents=True, exist_ok=True)
-        base_tag = (f"{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2"
-                    f"{self.precision_suffix}")
+        base_tag = f"{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2"
         onnx_path = build_dir / f"{base_tag}.onnx"
         engine_path = build_dir / f"{base_tag}.engine"
 
         if not engine_path.exists():
             label = (f"{self.name} at {self.input_size[:2]} "
                      f"(tiled={self.tiled}, tile_size={self.tile_size if self.tiled else None})")
-            estimate_conv_workspace_bytes(VideoWrapperCV2(self.model), self.input_size[:2],
-                                           use_fp32=self.use_fp32, label=label)
+            estimate_conv_workspace_bytes(VideoWrapperCV2(self.model), self.input_size[:2], label=label)
 
-            export_onnx_raw(VideoWrapperCV2(self.model), onnx_path, self.input_size[:2], use_fp32=self.use_fp32)
+            export_onnx_raw(VideoWrapperCV2(self.model), onnx_path, self.input_size[:2])
 
-        engine = get_raw_trt_engine(onnx_path, engine_path, use_fp32=self.use_fp32, opt_level=1)
+        engine = get_raw_trt_engine(onnx_path, engine_path, opt_level=1)
         runner = TRTRawRunner(engine)
 
         # Inference

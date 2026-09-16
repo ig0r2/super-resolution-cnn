@@ -19,13 +19,13 @@ class TRTBuildTooLarge(RuntimeError):
     """Raised when the estimated TensorRT workspace need exceeds the VRAM available for a build."""
 
 
-def estimate_conv_workspace_bytes(model, input_hw, use_fp32=False, headroom_gb=1.0, label=None):
+def estimate_conv_workspace_bytes(model, input_hw, headroom_gb=1.0, label=None):
     """Rough upper-bound estimate of the largest per-layer TensorRT workspace this network could
     request at the given resolution, based on the classic im2col/GEMM buffer size
     (in_channels/groups * kernel_h * kernel_w * out_h * out_w * dtype_bytes) for each conv layer.
     """
-    dtype = torch.float32 if use_fp32 else torch.float16
-    dtype_bytes = 4 if use_fp32 else 2
+    dtype = torch.float16
+    dtype_bytes = 2
 
     peak_bytes = 0
 
@@ -62,9 +62,9 @@ def estimate_conv_workspace_bytes(model, input_hw, use_fp32=False, headroom_gb=1
     return peak_bytes
 
 
-def export_onnx_raw(model, onnx_path, input_hw, use_fp32=False):
-    """Eksportuje model u ONNX sa statickim ulazom (H,W,3) na GPU-u, za raw TensorRT build."""
-    dtype = torch.float32 if use_fp32 else torch.float16
+def export_onnx_raw(model, onnx_path, input_hw):
+    """Eksportuje model u ONNX (FP16) sa statickim ulazom (H,W,3) na GPU-u, za raw TensorRT build."""
+    dtype = torch.float16
     wrapper = model.eval().cuda().to(dtype)
     dummy = torch.randn(input_hw[0], input_hw[1], 3, device="cuda", dtype=dtype)
     torch.onnx.export(
@@ -79,8 +79,8 @@ def load_raw_trt_engine(engine_path):
     return runtime.deserialize_cuda_engine(engine_path.read_bytes())
 
 
-def build_raw_trt_engine(onnx_path, engine_path, use_fp32=False, workspace_gb=None, opt_level=3):
-    """Gradi staticni TRT engine preko cistog TensorRT Python API-ja i kesira ga na disk.
+def build_raw_trt_engine(onnx_path, engine_path, workspace_gb=None, opt_level=3):
+    """Gradi staticni TRT engine (uvek FP16) preko cistog TensorRT Python API-ja i kesira ga na disk.
 
     workspace_gb=None auto-sizes the workspace pool to the currently free VRAM (minus
     workspace_headroom_gb), so tactics aren't skipped just because a fixed cap was too tight.
@@ -106,8 +106,7 @@ def build_raw_trt_engine(onnx_path, engine_path, use_fp32=False, workspace_gb=No
     config = builder.create_builder_config()
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_bytes)
     config.builder_optimization_level = opt_level
-    if not use_fp32:
-        config.set_flag(trt.BuilderFlag.FP16)
+    config.set_flag(trt.BuilderFlag.FP16)
 
     serialized = builder.build_serialized_network(network, config)
     if serialized is None:
@@ -122,15 +121,11 @@ def build_raw_trt_engine(onnx_path, engine_path, use_fp32=False, workspace_gb=No
     return engine
 
 
-def get_raw_trt_engine(onnx_path, engine_path, use_fp32=False, workspace_gb=None, opt_level=3, rebuild=False):
-    """Ucitava keširani TRT engine ako postoji na disku, inace ga gradi.
-
-    Tanka dispecerska funkcija oko load_raw_trt_engine / build_raw_trt_engine.
-    """
+def get_raw_trt_engine(onnx_path, engine_path, workspace_gb=None, opt_level=3, rebuild=False):
+    """Ucitava keširani TRT engine ako postoji na disku, inace ga gradi (FP16)"""
     if engine_path.exists() and not rebuild:
         return load_raw_trt_engine(engine_path)
-    return build_raw_trt_engine(onnx_path, engine_path, use_fp32=use_fp32, workspace_gb=workspace_gb,
-                                 opt_level=opt_level)
+    return build_raw_trt_engine(onnx_path, engine_path, workspace_gb=workspace_gb, opt_level=opt_level)
 
 
 class TRTRawRunner:
@@ -144,6 +139,7 @@ class TRTRawRunner:
         self.out_name = next(n for n in names if engine.get_tensor_mode(n) == trt.TensorIOMode.OUTPUT)
         self.in_dtype = _TRT_TO_TORCH[engine.get_tensor_dtype(self.in_name)]
         self.out_dtype = _TRT_TO_TORCH[engine.get_tensor_dtype(self.out_name)]
+        self.out_shape = tuple(engine.get_tensor_shape(self.out_name))
         self.stream = torch.cuda.Stream()
 
     def __call__(self, x):
@@ -152,14 +148,10 @@ class TRTRawRunner:
 
         with torch.cuda.stream(self.stream):
             x = x.to(self.in_dtype).contiguous()
-            self.context.set_input_shape(self.in_name, tuple(x.shape))
-            out_shape = tuple(self.context.get_tensor_shape(self.out_name))
-            out = torch.empty(out_shape, dtype=self.out_dtype, device="cuda")
+            out = torch.empty(self.out_shape, dtype=self.out_dtype, device="cuda")
             self.context.set_tensor_address(self.in_name, x.data_ptr())
             self.context.set_tensor_address(self.out_name, out.data_ptr())
             self.context.execute_async_v3(self.stream.cuda_stream)
-            if out.dtype != torch.uint8:  # ako TRT ne izlazi uint8, konvertuj ovde
-                out = out.clamp(0, 255).to(torch.uint8)
 
         self.stream.synchronize()
         return out
