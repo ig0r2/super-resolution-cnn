@@ -53,7 +53,7 @@ class EvaluatorPerfVideo:
         self.tiled = tiled
         self.tile_size = tile_size
         self.image_size = (image_size[0], image_size[1], 3)
-        self.input_frame = np.random.randint(0, 255, self.image_size)
+        self.input_frame = np.random.randint(0, 255, self.image_size, dtype=np.uint8)
         self.input_size = (tile_size, tile_size, 3) if tiled else self.image_size
 
         self.warmup_runs = warmup_runs
@@ -146,18 +146,22 @@ class EvaluatorPerfVideo:
         def infer(tile):
             return runner(tile)
 
+        # Pinned staging buffer for the frame: upload uint8 (1 byte/px) with an async copy and let
+        # the runner cast to fp16 on the GPU, instead of casting on the host and uploading fp16.
+        frame_staging = torch.empty(self.image_size, dtype=torch.uint8, pin_memory=True)
+
         # Define callback for upscaling the frame
         if self.tiled:
             tile_processor = TileProcessorTorch(self.upscale_factor, self.tile_size, overlap=8,
                                                 dtype=self.torch_dtype)
 
             def upscale(frame):
-                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
+                frame_gpu = frame_staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
                 return tile_processor.process_frame(frame_gpu, infer).cpu().numpy()
 
         else:
             def upscale(frame):
-                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
+                frame_gpu = frame_staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
                 return infer(frame_gpu).cpu().numpy()
 
         try:
@@ -191,18 +195,22 @@ class EvaluatorPerfVideo:
         def infer(tile):
             return model(tile)
 
+        # Pinned staging buffer: upload uint8 with an async copy, then cast to fp16 on the GPU
+        # (the .pt2 module expects fp16 input directly, unlike the raw runner).
+        frame_staging = torch.empty(self.image_size, dtype=torch.uint8, pin_memory=True)
+
         # Define callback for upscaling the frame
         if self.tiled:
             tile_processor = TileProcessorTorch(self.upscale_factor, self.tile_size, overlap=8,
                                                 dtype=self.torch_dtype)
 
             def upscale(frame):
-                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
+                frame_gpu = frame_staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True).to(self.torch_dtype)
                 return tile_processor.process_frame(frame_gpu, infer).cpu().numpy()
 
         else:
             def upscale(frame):
-                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
+                frame_gpu = frame_staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True).to(self.torch_dtype)
                 return infer(frame_gpu).cpu().numpy()
 
         try:

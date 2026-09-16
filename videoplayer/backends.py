@@ -53,10 +53,16 @@ class TRTBackend:
         if tiled:
             self.tile_processor = TileProcessorTorch(upscale_factor=upscale_factor, tile_size=tile_size, overlap=8)
 
+        # Pinned staging buffer for async H2D uploads, allocated lazily on the first frame (the
+        # full-frame size isn't known here in tiled mode). The runner casts uint8 -> fp16 on GPU.
+        self._staging = None
+
         _log("TRTBackend ready.")
 
     def __call__(self, frame: np.ndarray) -> np.ndarray:
-        frame_gpu = torch.from_numpy(frame).cuda()
+        if self._staging is None or tuple(self._staging.shape) != frame.shape:
+            self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
+        frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
         if self.tiled:
             out = self.tile_processor.process_frame(frame_gpu, self.runner)
         else:
