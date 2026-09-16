@@ -117,7 +117,7 @@ class VideoPlayer:
         self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.frame_size = (int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                            int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)))
+                           int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)))
 
         self.upscale_fn = None
         self.paused = False
@@ -204,7 +204,8 @@ class VideoPlayer:
             self.audio.start()
             self.audio.set_paused(False)
 
-        frame_times = deque(maxlen=20)
+        frame_times = deque(maxlen=20)  # compute cost per new frame (SR + display resize)
+        loop_times = deque(maxlen=30)  # wall-clock timestamps of new frames -> achieved FPS
         last_frame_id = -1
         last_output = None
         running = True
@@ -233,10 +234,26 @@ class VideoPlayer:
                 last_output = output
                 last_frame_id = frame_id
 
+                if not self.paused:
+                    loop_times.append(time.perf_counter())
+
             display = last_output.copy()
-            avg_fps = 1000.0 / (sum(frame_times) / len(frame_times)) if frame_times else 0.0
-            status = "PAUSED" if self.paused else f"{avg_fps:.1f} FPS"
-            cv2.putText(display, status, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+            if self.paused:
+                loop_times.clear()  # avoid a stale gap spanning the pause on resume
+
+            # compute FPS = model + display-resize cost only (decode is on the reader thread, and
+            # GUI/pacing are excluded) -> an upper bound. achieved FPS = real rate of new frames
+            # reaching the screen -> includes decode wait, GUI, and the real-time pacing cap.
+            compute_fps = 1000.0 / (sum(frame_times) / len(frame_times)) if frame_times else 0.0
+            achieved_fps = ((len(loop_times) - 1) / (loop_times[-1] - loop_times[0])
+                            if len(loop_times) >= 2 and loop_times[-1] > loop_times[0] else 0.0)
+            if self.paused:
+                lines = ["PAUSED"]
+            else:
+                lines = [f"{achieved_fps:.1f} FPS (displayed)", f"{compute_fps:.1f} FPS (GPU)"]
+            for i, line in enumerate(lines):
+                cv2.putText(display, line, (20, 40 + i * 38), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             pos_s = pos_frames / self.fps
             dur_s = self.frame_count / self.fps

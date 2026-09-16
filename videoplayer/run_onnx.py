@@ -10,11 +10,9 @@ from videoplayer.backends import ONNXBackend
 from videoplayer.player import VideoPlayer
 from videoplayer.scaling import choose_auto_scale, get_screen_size
 
-MODEL = "multiscale/SR_FastEDSR_jpeg_4_256"
-VIDEO_PATH = get_project_root("videoinput/F1Bahr-480p50.mp4")
+MODEL = "multiscale/SR_FastEDSR_4_128"
+VIDEO_PATH = get_project_root("videoinput/ldv-001-480p.mp4")
 CANDIDATE_SCALES = (2, 3, 4)
-TILED = False
-TILE_SIZE = 256
 PROVIDER = "directml"  # one of: cuda, tensorrt, directml, openvino, cpu
 
 ################################################
@@ -38,15 +36,12 @@ decision = choose_auto_scale(frame_size, screen_size, CANDIDATE_SCALES)
 log(f"Frame {frame_size} | Screen {screen_size} | Model scale {decision.model_scale}x "
     f"-> {decision.model_output_size} | Target (bicubic) {decision.target_size}")
 
-input_size = (TILE_SIZE, TILE_SIZE) if TILED else frame_size
-
 checkpoint_name = MODEL.split("/", 1)[-1]
-tag = f"{checkpoint_name}_{input_size[0]}x{input_size[1]}_{decision.model_scale}x_cv2"
+tag = f"{checkpoint_name}_{frame_size[0]}x{frame_size[1]}_{decision.model_scale}x_cv2"
 cache_dir = get_project_root("exports/videoplayer_onnx")
 
 log(f"Preparing onnxruntime backend (provider={PROVIDER}; export on first run can take a while) ...")
-backend = ONNXBackend(checkpoint_path, cache_dir, tag, input_size, decision.model_scale,
-                       provider=PROVIDER, tiled=TILED, tile_size=TILE_SIZE)
+backend = ONNXBackend(checkpoint_path, cache_dir, tag, frame_size, decision.model_scale, provider=PROVIDER)
 
 target_size = decision.target_size if decision.target_size != decision.model_output_size else None
 

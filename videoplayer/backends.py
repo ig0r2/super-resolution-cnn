@@ -8,7 +8,6 @@ from utils.video.evaluator_perf_video import VideoWrapperCV2
 from utils.video.export import export_onnx
 from utils.video.export_trt_engine import export_onnx_raw, get_raw_trt_engine, TRTRawRunner
 from utils.video.export_ncnn import export_ncnn, NCNNRunner
-from utils.video.model_utils import TileProcessor, TileProcessorTorch
 
 
 def _log(msg: str):
@@ -29,8 +28,7 @@ def _load_model(checkpoint_path, upscale_factor):
 class TRTBackend:
     """Raw TensorRT engine backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
 
-    def __init__(self, checkpoint_path: Path, cache_dir: Path, tag: str, input_size, upscale_factor: int,
-                 tiled: bool = False, tile_size: int = 256):
+    def __init__(self, checkpoint_path: Path, cache_dir: Path, tag: str, input_size, upscale_factor: int):
         cache_dir.mkdir(parents=True, exist_ok=True)
         onnx_path = cache_dir / f"{tag}.onnx"
         engine_path = cache_dir / f"{tag}.engine"
@@ -50,12 +48,8 @@ class TRTBackend:
         _log(f"TensorRT engine ready in {time.perf_counter() - t0:.1f}s")
         self.runner = TRTRawRunner(engine)
 
-        self.tiled = tiled
-        if tiled:
-            self.tile_processor = TileProcessorTorch(upscale_factor=upscale_factor, tile_size=tile_size, overlap=8)
-
-        # Pinned staging buffer for async H2D uploads, allocated lazily on the first frame (the
-        # full-frame size isn't known here in tiled mode). The runner casts uint8 -> fp16 on GPU.
+        # Pinned staging buffer for async H2D uploads, allocated lazily on the first frame.
+        # The runner casts uint8 -> fp16 on GPU.
         self._staging = None
 
         _log("TRTBackend ready.")
@@ -64,11 +58,7 @@ class TRTBackend:
         if self._staging is None or tuple(self._staging.shape) != frame.shape:
             self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
         frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
-        if self.tiled:
-            out = self.tile_processor.process_frame(frame_gpu, self.runner)
-        else:
-            out = self.runner(frame_gpu)
-        return out.cpu().numpy()
+        return self.runner(frame_gpu).cpu().numpy()
 
 
 class ONNXBackend:
@@ -83,7 +73,7 @@ class ONNXBackend:
     }
 
     def __init__(self, checkpoint_path: Path, cache_dir: Path, tag: str, input_size, upscale_factor: int,
-                 provider: str = "cuda", tiled: bool = False, tile_size: int = 256):
+                 provider: str = "cuda"):
         import onnxruntime as ort
 
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -105,26 +95,16 @@ class ONNXBackend:
         _log(f"onnxruntime session ready in {time.perf_counter() - t0:.1f}s")
         self.dtype = np.float16
 
-        self.tiled = tiled
-        if tiled:
-            self.tile_processor = TileProcessor(upscale_factor=upscale_factor, tile_size=tile_size, overlap=8)
-
         _log("ONNXBackend ready.")
 
-    def _infer(self, tile: np.ndarray) -> np.ndarray:
-        return self.session.run(None, {"input": tile.astype(self.dtype)})[0]
-
     def __call__(self, frame: np.ndarray) -> np.ndarray:
-        if self.tiled:
-            return self.tile_processor.process_frame(frame, self._infer)
-        return self._infer(frame)
+        return self.session.run(None, {"input": frame.astype(self.dtype)})[0]
 
 
 class NCNNBackend:
     """ncnn-Vulkan backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
 
-    def __init__(self, checkpoint_path: Path, cache_dir: Path, tag: str, input_size, upscale_factor: int,
-                 tiled: bool = False, tile_size: int = 256):
+    def __init__(self, checkpoint_path: Path, cache_dir: Path, tag: str, input_size, upscale_factor: int):
         cache_dir.mkdir(parents=True, exist_ok=True)
         param_path = cache_dir / f"{tag}.ncnn.param"
         bin_path = cache_dir / f"{tag}.ncnn.bin"
@@ -140,13 +120,7 @@ class NCNNBackend:
 
         self.runner = NCNNRunner(param_path, bin_path)
 
-        self.tiled = tiled
-        if tiled:
-            self.tile_processor = TileProcessor(upscale_factor=upscale_factor, tile_size=tile_size, overlap=8)
-
         _log("NCNNBackend ready.")
 
     def __call__(self, frame: np.ndarray) -> np.ndarray:
-        if self.tiled:
-            return self.tile_processor.process_frame(frame, self.runner)
         return self.runner(frame)
