@@ -12,7 +12,8 @@ from utils.video.export_trt_engine import (export_onnx_raw, get_raw_trt_engine, 
 from utils.video.model_utils import TileProcessor, TileProcessorTorch
 
 Runtype: TypeAlias = Literal[
-    'tensorrt', 'tensorrt-pt2', 'onnxruntime-cuda', 'onnxruntime-tensorrt', 'onnxruntime-openvino', 'onnxruntime-directml']
+    'tensorrt', 'tensorrt-pt2', 'ncnn-vulkan',
+    'onnxruntime-cuda', 'onnxruntime-tensorrt', 'onnxruntime-openvino', 'onnxruntime-directml']
 
 
 # Pretvara iz OpenCV formata u format za model, odradi inference i onda vrati u format za OpenCV
@@ -65,6 +66,8 @@ class EvaluatorPerfVideo:
             return self.evaluate_tensorrt_raw()
         elif self.runtype == 'tensorrt-pt2':
             return self.evaluate_tensorrt_pt2()
+        elif self.runtype == 'ncnn-vulkan':
+            return self.evaluate_ncnn()
         elif self.runtype.startswith('onnxruntime'):
             return self.evaluate_onnx()
 
@@ -217,6 +220,44 @@ class EvaluatorPerfVideo:
             return self._measuring_loop(upscale)
         finally:
             del model, infer, upscale
+            if self.tiled:
+                del tile_processor
+            self._free_gpu_memory()
+
+    # ============NCNN (Vulkan)=============
+
+    def evaluate_ncnn(self):
+        from utils.video.export_ncnn import export_ncnn, NCNNRunner
+
+        build_dir = get_project_root("exports/ncnn")
+        build_dir.mkdir(parents=True, exist_ok=True)
+        base_tag = f"{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2"
+        param_path = build_dir / f"{base_tag}.ncnn.param"
+        bin_path = build_dir / f"{base_tag}.ncnn.bin"
+
+        if not param_path.exists():
+            export_ncnn(self.model, build_dir, base_tag, self.input_size[:2])
+
+        runner = NCNNRunner(param_path, bin_path)
+
+        # Inference
+        print(f"Using input shape: {self.input_size}")
+
+        # ncnn runs BGR uint8 (H,W,3) -> BGR uint8, on CPU numpy (Vulkan internally), so use the
+        # numpy TileProcessor and no torch H2D staging.
+        if self.tiled:
+            tile_processor = TileProcessor(upscale_factor=self.upscale_factor, tile_size=self.tile_size, overlap=8)
+
+            def upscale(frame):
+                return tile_processor.process_frame(frame, runner)
+        else:
+            def upscale(frame):
+                return runner(frame)
+
+        try:
+            return self._measuring_loop(upscale)
+        finally:
+            del runner, upscale
             if self.tiled:
                 del tile_processor
             self._free_gpu_memory()
