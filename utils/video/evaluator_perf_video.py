@@ -1,3 +1,4 @@
+import gc
 import time
 from typing import Literal, TypeAlias
 
@@ -6,9 +7,12 @@ import torch
 
 from utils.path import get_project_root
 from utils.video.export import export_onnx, export_trt
+from utils.video.export_trt_engine import (export_onnx_raw, get_raw_trt_engine, TRTRawRunner,
+                                           estimate_conv_workspace_bytes)
 from utils.video.model_utils import TileProcessor, TileProcessorTorch
 
-Runtype: TypeAlias = Literal['tensorrt', 'onnxruntime-cuda', 'onnxruntime-tensorrt', 'onnxruntime-openvino', 'onnxruntime-directml']
+Runtype: TypeAlias = Literal[
+    'tensorrt', 'tensorrt-pt2', 'onnxruntime-cuda', 'onnxruntime-tensorrt', 'onnxruntime-openvino', 'onnxruntime-directml']
 
 
 # Pretvara iz OpenCV formata u format za model, odradi inference i onda vrati u format za OpenCV
@@ -58,7 +62,9 @@ class EvaluatorPerfVideo:
 
     def evaluate(self):
         if self.runtype == 'tensorrt':
-            return self.evaluate_tensorrt()
+            return self.evaluate_tensorrt_raw()
+        elif self.runtype == 'tensorrt-pt2':
+            return self.evaluate_tensorrt_pt2()
         elif self.runtype.startswith('onnxruntime'):
             return self.evaluate_onnx()
 
@@ -82,6 +88,8 @@ class EvaluatorPerfVideo:
         elif self.runtype == "onnxruntime-openvino":
             providers = [('OpenVINOExecutionProvider',
                           {"device_type": "GPU", "precision": "FP32" if self.use_fp32 else "FP16"})]
+        elif self.runtype == "onnxruntime-directml":
+            providers = ['DmlExecutionProvider']
 
         # Load model
         ort_session = ort.InferenceSession(output_path, providers=providers)
@@ -103,11 +111,68 @@ class EvaluatorPerfVideo:
             def upscale(frame):
                 return infer(frame)
 
-        return self._measuring_loop(upscale)
+        try:
+            return self._measuring_loop(upscale)
+        finally:
+            del ort_session, infer, upscale
+            if self.tiled: del tile_processor
+            self._free_gpu_memory()
 
-    # ============TENSORRT=============
+    # ============TENSORRT (raw)=============
 
-    def evaluate_tensorrt(self):
+    def evaluate_tensorrt_raw(self):
+        torch.cuda.empty_cache()
+
+        build_dir = get_project_root("exports/trt_raw")
+        build_dir.mkdir(parents=True, exist_ok=True)
+        base_tag = (f"{self.name}_{self.input_size[0]}x{self.input_size[1]}_{self.upscale_factor}x_cv2"
+                    f"{self.precision_suffix}")
+        onnx_path = build_dir / f"{base_tag}.onnx"
+        engine_path = build_dir / f"{base_tag}.engine"
+
+        if not engine_path.exists():
+            label = (f"{self.name} at {self.input_size[:2]} "
+                     f"(tiled={self.tiled}, tile_size={self.tile_size if self.tiled else None})")
+            estimate_conv_workspace_bytes(VideoWrapperCV2(self.model), self.input_size[:2],
+                                           use_fp32=self.use_fp32, label=label)
+
+            export_onnx_raw(VideoWrapperCV2(self.model), onnx_path, self.input_size[:2], use_fp32=self.use_fp32)
+
+        engine = get_raw_trt_engine(onnx_path, engine_path, use_fp32=self.use_fp32, opt_level=1)
+        runner = TRTRawRunner(engine)
+
+        # Inference
+        print(f"Using input shape: {self.input_size}")
+
+        # Define callback for model inference
+        def infer(tile):
+            return runner(tile)
+
+        # Define callback for upscaling the frame
+        if self.tiled:
+            tile_processor = TileProcessorTorch(self.upscale_factor, self.tile_size, overlap=8,
+                                                dtype=self.torch_dtype)
+
+            def upscale(frame):
+                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
+                return tile_processor.process_frame(frame_gpu, infer).cpu().numpy()
+
+        else:
+            def upscale(frame):
+                frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
+                return infer(frame_gpu).cpu().numpy()
+
+        try:
+            return self._measuring_loop(upscale)
+        finally:
+            del engine, runner, infer, upscale
+            if self.tiled:
+                del tile_processor
+            self._free_gpu_memory()
+
+    # ============TENSORRT (torch_tensorrt .pt2)=============
+
+    def evaluate_tensorrt_pt2(self):
 
         torch.cuda.empty_cache()
 
@@ -142,9 +207,21 @@ class EvaluatorPerfVideo:
                 frame_gpu = torch.from_numpy(frame).to(self.torch_dtype).cuda()
                 return infer(frame_gpu).cpu().numpy()
 
-        return self._measuring_loop(upscale)
+        try:
+            return self._measuring_loop(upscale)
+        finally:
+            del model, infer, upscale
+            if self.tiled:
+                del tile_processor
+            self._free_gpu_memory()
 
     #########################
+
+    def _free_gpu_memory(self):
+        """Explicitly drop the model and any GPU-resident state, then reclaim VRAM."""
+        self.model = self.model.cpu()
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def _measuring_loop(self, infer_fn):
         # Warmup

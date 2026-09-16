@@ -13,7 +13,7 @@ from utils.video.export import export_trt
 from utils.video.model_utils import TileProcessorTorch
 from utils.video.videoplayer import VideoPlayer
 
-MODEL = "multiscale/SR_RFDN_jpeg_2_256_GAN"
+MODEL = "multiscale/SR_FastEDSR_jpeg_4_256"
 VIDEO_PATH = get_project_root("videoinput/F1Bahr-480p50.mp4")
 UPSCALE_FACTOR = 2
 TILED = False
