@@ -6,11 +6,11 @@ from typing import Literal, TypeAlias
 import cv2
 import torch
 
-from videoplayer.backends import TRTBackend, ONNXBackend, NCNNBackend
+from videoplayer.backends import TRTBackend, ONNXBackend, NCNNBackend, PT2Backend
 from videoplayer.scaling import choose_auto_scale
 
 Runtype: TypeAlias = Literal[
-    "tensorrt", "ncnn-vulkan",
+    "tensorrt", "tensorrt-pt2", "ncnn-vulkan",
     "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
     "onnxruntime-directml", "onnxruntime-cpu"]
 
@@ -23,6 +23,9 @@ def _make_backend(runtype: Runtype, checkpoint_path, tag, input_size, upscale_fa
     """Build the videoplayer backend for a runtype (same classes the demo player uses)."""
     if runtype == "tensorrt":
         return TRTBackend(checkpoint_path, tag, input_size, upscale_factor)
+    if runtype == "tensorrt-pt2":
+        # torch_tensorrt .pt2: safer for large models where the raw engine build OOMs (see PT2Backend).
+        return PT2Backend(checkpoint_path, tag, input_size, upscale_factor)
     if runtype == "ncnn-vulkan":
         return NCNNBackend(checkpoint_path, tag, input_size, upscale_factor)
     if runtype.startswith("onnxruntime-"):

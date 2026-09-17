@@ -3,7 +3,8 @@ import time
 import numpy as np
 import torch
 
-from utils.video.evaluator_perf_video import VideoWrapperCV2
+from utils.video.wrapper import VideoWrapperCV2
+from utils.video.export import export_trt
 from utils.video.export_trt_engine import export_onnx_raw, get_raw_trt_engine, TRTRawRunner
 from utils.video.export_ncnn import export_ncnn, NCNNRunner
 from videoplayer import cache_paths
@@ -59,6 +60,51 @@ class TRTBackend:
             self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
         frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
         return self.runner(frame_gpu).cpu().numpy()
+
+
+class PT2Backend:
+    """torch_tensorrt (.pt2) backend. Callable on a BGR uint8 numpy frame (H,W,3).
+
+    Unlike TRTBackend, which builds a raw TensorRT *engine* from ONNX, this compiles the model
+    with torch_tensorrt and serialises a .pt2. It's the safer choice for LARGE models: building a
+    raw TensorRT engine can run out of VRAM (TensorRT needs a big scratch/workspace pool plus
+    tactic-profiling memory at build time, on top of the weights), and for the biggest models that
+    build simply OOMs. The torch_tensorrt path builds more conservatively and keeps working where
+    the engine build dies -- so reach for tensorrt-pt2 whenever `tensorrt` fails to build. For
+    small/medium models the raw engine (TRTBackend) is a bit faster, so prefer it when it fits.
+    """
+
+    def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int):
+        import torch_tensorrt  # noqa: F401  (registers the ops needed to load the .pt2)
+
+        pt2_path = cache_paths.pt2_cv2(tag)
+        pt2_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # No ONNX step: torch_tensorrt compiles the torch model directly, so a cache miss needs the
+        # checkpoint. A cached .pt2 skips both the checkpoint load and the (slow) compile.
+        if not pt2_path.exists():
+            model = _load_model(checkpoint_path, upscale_factor)
+            model.half()
+            _log(f"Compiling torch_tensorrt .pt2 ({input_size[0]}x{input_size[1]}) -> {pt2_path.name} ...")
+            t0 = time.perf_counter()
+            export_trt(VideoWrapperCV2(model), pt2_path, (input_size[0], input_size[1], 3))
+            _log(f".pt2 compile done in {time.perf_counter() - t0:.1f}s")
+        else:
+            _log(f"Reusing cached .pt2 model {pt2_path.name}")
+
+        self.model = torch.export.load(str(pt2_path)).module().cuda()
+
+        # Pinned staging buffer for async H2D uploads, allocated lazily on the first frame.
+        self._staging = None
+
+        _log("PT2Backend ready.")
+
+    def __call__(self, frame: np.ndarray) -> np.ndarray:
+        if self._staging is None or tuple(self._staging.shape) != frame.shape:
+            self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
+        # The compiled module expects fp16 input directly (the raw runner casts on-GPU instead).
+        frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True).half()
+        return self.model(frame_gpu).cpu().numpy()
 
 
 class ONNXBackend:

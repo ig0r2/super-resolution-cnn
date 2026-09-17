@@ -8,6 +8,7 @@ rebuilding into its own folder:
     exports/onnx_nvdec/{tag}.onnx      CHW RGB wrapper  (NVDEC TRT engine build)
     exports/trt_cv2/{tag}.engine       cv2-decode TensorRT engine
     exports/trt_nvdec/{tag}.engine     NVDEC-decode TensorRT engine
+    exports/pt2_cv2/{tag}.pt2          cv2-decode torch_tensorrt module (large-model fallback)
     exports/ncnn/{tag}.ncnn.param/bin  ncnn model (no ONNX; pnnx from the bare model)
 """
 from utils.path import get_project_root
@@ -19,6 +20,10 @@ def onnx_cv2(tag):
 
 def engine_cv2(tag):
     return get_project_root(f"exports/trt_cv2/{tag}.engine")
+
+
+def pt2_cv2(tag):
+    return get_project_root(f"exports/pt2_cv2/{tag}.pt2")
 
 
 def ncnn_paths(tag):

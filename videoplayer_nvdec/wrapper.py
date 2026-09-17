@@ -3,7 +3,7 @@ import torch
 
 class VideoWrapperNVDEC(torch.nn.Module):
     """
-    NVDEC-decode counterpart of utils.video.evaluator_perf_video.VideoWrapperCV2.
+    NVDEC-decode counterpart of utils.video.wrapper.VideoWrapperCV2.
 
     The NVDEC decoder already hands us an RGB, channels-first (3,H,W) tensor on the GPU, so
     unlike the OpenCV path there is no BGR<->RGB swap and no HWC<->CHW permutation to do here:

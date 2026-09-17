@@ -32,6 +32,18 @@ def save_to_csv(data, csv_path, match_keys=('model_name',)):
     df.to_csv(csv_path, index=False)
 
 
+def already_done(csv_path, model_name, runtype, expected_cols):
+    """True only if the (model, runtype) row exists and every expected column is filled in."""
+    if not Path(csv_path).exists():
+        return False
+    df = pd.read_csv(csv_path, dtype=str)
+    row = df[(df.get("model_name") == model_name) & (df.get("runtype") == runtype)]
+    if row.empty:
+        return False
+    row = row.iloc[0]
+    return all(c in row and str(row[c]) not in ("", "nan") for c in expected_cols)
+
+
 def get_columns_to_evaluate(csv_path, model_name):
     metric_cols = {'LPIPS', 'SSIM', 'PSNR', 'Loss'}
     perf_720p_cols = {'FPS 720p', 'VRAM (MB) 720p'}
@@ -56,15 +68,3 @@ def get_columns_to_evaluate(csv_path, model_name):
     needs_480p = row[list(perf_480p_cols)].isnull().any()
 
     return needs_metrics, needs_720p, needs_480p
-
-
-def is_model_evaluated(csv_path, model_name, runtype=None):
-    """Vraca True ako model_name vec ima red u CSV-u (opciono i za isti runtype)."""
-    if not Path(csv_path).exists():
-        return False
-
-    df = pd.read_csv(csv_path, dtype=str)
-    mask = df['model_name'] == model_name
-    if runtype is not None:
-        mask &= df['runtype'] == str(runtype)
-    return mask.any()

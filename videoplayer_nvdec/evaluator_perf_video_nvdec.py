@@ -17,7 +17,7 @@ _REF_SCREEN = (1080, 1920)
 class EvaluatorPerfVideoNVDEC:
     """
     Speed evaluation for the NVDEC-decode SR pipeline (videoplayer_nvdec), the NVDEC counterpart
-    of utils.video.evaluator_perf_video.EvaluatorPerfVideo.
+    of videoplayer.evaluator_perf_video_cv2.EvaluatorPerfVideoCV2.
 
     Unlike the OpenCV evaluator (which feeds a fixed synthetic frame through the model and only
     times inference), this decodes real frames on the GPU via NVDEC and reports a per-stage
