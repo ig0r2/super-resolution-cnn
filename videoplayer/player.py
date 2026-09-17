@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 import cv2
 
 from .audio import AudioTrack
+from .scaling import choose_auto_scale, get_screen_size
 
 # cv2.waitKeyEx extended key codes (Windows)
 KEY_ESC = 27
@@ -132,6 +133,17 @@ class VideoPlayer:
     def set_upscale_fn(self, upscale_fn):
         self.upscale_fn = upscale_fn
         return self
+
+    def configure_scale(self, candidate_scales=(2, 3, 4)) -> int:
+        """Pick the model scale for this video on the current screen, set the display target_size,
+        and return the chosen integer scale (which drives the SR model / engine)."""
+        screen_size = get_screen_size()
+        decision = choose_auto_scale(self.frame_size, screen_size, candidate_scales)
+        print(f"[videoplayer] Frame {self.frame_size} | Screen {screen_size} | "
+              f"Model scale {decision.model_scale}x -> {decision.model_output_size} | "
+              f"Target (bicubic) {decision.target_size}")
+        self.target_size = decision.target_size if decision.target_size != decision.model_output_size else None
+        return decision.model_scale
 
     def _seek(self, delta_seconds: float, current_pos_frames: float):
         target = current_pos_frames + delta_seconds * self.fps
