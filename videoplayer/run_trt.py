@@ -4,7 +4,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from utils.path import get_project_root, get_checkpoints_path
-from videoplayer import cache_paths
 from videoplayer.backends import TRTBackend
 from videoplayer.player import VideoPlayer
 
@@ -27,12 +26,13 @@ checkpoint_name = MODEL.split("/", 1)[-1]
 tag = f"{checkpoint_name}_{frame_size[0]}x{frame_size[1]}_{scale}x"
 
 checkpoint_path = get_checkpoints_path(f"{MODEL}.pth")
-if not cache_paths.engine_cv2(tag).exists() and not checkpoint_path.exists():
-    print(f"No cached engine and no checkpoint for {MODEL}")
-    sys.exit(1)
 
 log("Setting up TensorRT backend")
-backend = TRTBackend(checkpoint_path, tag, frame_size, scale)
+try:
+    backend = TRTBackend(checkpoint_path, tag, frame_size, scale)
+except RuntimeError as e:
+    print(e)
+    sys.exit(1)
 
 log("Starting playback.")
 player.set_upscale_fn(backend).play()

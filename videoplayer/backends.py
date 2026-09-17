@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from utils.video.wrapper import VideoWrapperCV2
-from utils.video.export import export_trt
+from utils.video.export import export_trt, export_onnx_bare
 from utils.video.export_trt_engine import export_onnx_raw, get_raw_trt_engine, TRTRawRunner
 from utils.video.export_ncnn import export_ncnn, NCNNRunner
 from videoplayer import cache_paths
@@ -25,23 +25,49 @@ def _load_model(checkpoint_path, upscale_factor):
     return model
 
 
+def get_onnx(checkpoint_path, onnx_path, input_size, upscale_factor, *, wrap=True):
+    """Return `onnx_path`, exporting it from the checkpoint only if the ONNX is missing.
+
+    This is the single checkpoint->ONNX step every ONNX-based backend goes through, so a cached ONNX
+    means the .pth is never loaded (the checkpoint is only a fallback for building the ONNX):
+
+        wrap=True  -> VideoWrapperCV2 graph (HWC BGR, baked BGR<->RGB / normalize / permute):
+                      the shared cv2 ONNX the TensorRT engine build and onnxruntime both consume.
+        wrap=False -> bare model (CHW RGB): the ncnn/pnnx source; NCNNRunner does the pre/post itself.
+    """
+    if onnx_path.exists():
+        _log(f"Reusing cached ONNX {onnx_path.name}")
+        return onnx_path
+
+    # Nothing cached to build from and no checkpoint to export from -> nothing we can do.
+    if not checkpoint_path.exists():
+        raise RuntimeError(f"No cached ONNX ({onnx_path.name}) and no checkpoint ({checkpoint_path.name})")
+
+    onnx_path.parent.mkdir(parents=True, exist_ok=True)
+    model = _load_model(checkpoint_path, upscale_factor)
+    _log(f"Exporting {'cv2 wrapper' if wrap else 'bare'} ONNX "
+         f"({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
+    t0 = time.perf_counter()
+    if wrap:
+        export_onnx_raw(VideoWrapperCV2(model), onnx_path, (input_size[0], input_size[1]))
+    else:
+        export_onnx_bare(model, onnx_path, (input_size[0], input_size[1]))
+    _log(f"ONNX export done in {time.perf_counter() - t0:.1f}s")
+    return onnx_path
+
+
 class TRTBackend:
     """Raw TensorRT engine backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
 
     def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int):
         onnx_path = cache_paths.onnx_cv2(tag)
         engine_path = cache_paths.engine_cv2(tag)
-        onnx_path.parent.mkdir(parents=True, exist_ok=True)
         engine_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # The checkpoint is only needed to export the (shared) ONNX; a cached engine skips it, and
-        # a cached ONNX (e.g. built by the onnxruntime backend) lets us build the engine without it.
-        if not engine_path.exists() and not onnx_path.exists():
-            model = _load_model(checkpoint_path, upscale_factor)
-            _log(f"Exporting ONNX ({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
-            t0 = time.perf_counter()
-            export_onnx_raw(VideoWrapperCV2(model), onnx_path, (input_size[0], input_size[1]))
-            _log(f"ONNX export done in {time.perf_counter() - t0:.1f}s")
+        # Prefer cached artifacts: a cached engine skips everything; otherwise build it from the
+        # shared cv2 ONNX, exporting that from the checkpoint only if it isn't cached either.
+        if not engine_path.exists():
+            get_onnx(checkpoint_path, onnx_path, input_size, upscale_factor, wrap=True)
 
         _log("Building/loading TensorRT engine (first run for this size/scale can take a while) ...")
         t0 = time.perf_counter()
@@ -82,6 +108,9 @@ class PT2Backend:
 
         # No ONNX step: torch_tensorrt compiles the torch model directly, so a cache miss needs the
         # checkpoint. A cached .pt2 skips both the checkpoint load and the (slow) compile.
+        if not pt2_path.exists() and not checkpoint_path.exists():
+            raise RuntimeError(f"No cached .pt2 ({pt2_path.name}) and no checkpoint ({checkpoint_path.name})")
+
         if not pt2_path.exists():
             model = _load_model(checkpoint_path, upscale_factor)
             model.half()
@@ -121,18 +150,9 @@ class ONNXBackend:
     def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int, provider: str = "cuda"):
         import onnxruntime as ort
 
-        # Shared cv2 ONNX (same file the TensorRT backend builds its engine from).
-        onnx_path = cache_paths.onnx_cv2(tag)
-        onnx_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if not onnx_path.exists():
-            model = _load_model(checkpoint_path, upscale_factor)
-            _log(f"Exporting ONNX ({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
-            t0 = time.perf_counter()
-            export_onnx_raw(VideoWrapperCV2(model), onnx_path, (input_size[0], input_size[1]))
-            _log(f"ONNX export done in {time.perf_counter() - t0:.1f}s")
-        else:
-            _log(f"Reusing cached ONNX model {onnx_path.name}")
+        # Shared cv2 ONNX (same file the TensorRT backend builds its engine from); export from the
+        # checkpoint only on a cache miss.
+        onnx_path = get_onnx(checkpoint_path, cache_paths.onnx_cv2(tag), input_size, upscale_factor, wrap=True)
 
         _log(f"Creating onnxruntime session (provider={provider}) ...")
         t0 = time.perf_counter()
@@ -153,11 +173,12 @@ class NCNNBackend:
         param_path, bin_path = cache_paths.ncnn_paths(tag)
         param_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # ncnn files first, otherwise convert from .onnx, exporting from checkpoint if no .onnx
         if not param_path.exists():
-            model = _load_model(checkpoint_path, upscale_factor)
-            _log(f"Converting to ncnn ({input_size[0]}x{input_size[1]}) -> {param_path.name} ...")
+            onnx_path = get_onnx(checkpoint_path, cache_paths.onnx_ncnn(tag), input_size, upscale_factor, wrap=False)
+            _log(f"Converting ncnn from ONNX ({input_size[0]}x{input_size[1]}) -> {param_path.name} ...")
             t0 = time.perf_counter()
-            export_ncnn(model, param_path.parent, tag, (input_size[0], input_size[1]))
+            export_ncnn(onnx_path, param_path.parent, tag, (input_size[0], input_size[1]))
             _log(f"ncnn conversion done in {time.perf_counter() - t0:.1f}s")
         else:
             _log(f"Reusing cached ncnn model {param_path.name}")

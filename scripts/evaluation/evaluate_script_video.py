@@ -4,12 +4,6 @@ from typing import Literal
 
 import torch
 
-# torch.onnx prints unicode (✅) on export; keep it from crashing a cp1252 console/logger.
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:
-    pass
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from utils.checkpoints import load_model_from_checkpoint
@@ -24,16 +18,18 @@ from videoplayer_nvdec.evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
 # "tensorrt-pt2" is the torch_tensorrt .pt2 path: use it for large models where "tensorrt  engine build OOMs
 
 Runtype = Literal[
-    "tensorrt", "tensorrt-pt2", "tensorrt-nvdec", "ncnn-vulkan",
-    "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
-    "onnxruntime-directml", "onnxruntime-cpu"]
+    "tensorrt", "tensorrt-pt2", "tensorrt-nvdec", "ncnn-vulkan", "onnxruntime-cuda",
+    "onnxruntime-tensorrt", "onnxruntime-openvino", "onnxruntime-directml", "onnxruntime-cpu"]
 
 NVDEC_RUNTYPE = "tensorrt-nvdec"
 STAGES = ("decode", "sr", "e2e", "full")
 
+
+############################################################
+
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[2, 3, 4] = 2
-    RUNTYPE: Runtype = "tensorrt"  # tensorrt | tensorrt-nvdec | onnxruntime-* | ncnn-vulkan
+    RUNTYPE: Runtype = "tensorrt-nvdec"
 
     SKIP_EVALUATED = True
     WARMUP_RUNS = 10
@@ -44,8 +40,200 @@ if __name__ == "__main__":
     ]
 
     CHECKPOINT_PATHS = [
-        # get_checkpoints_path("multiscale/SR_FastEDSR_4_32.pth"),
+        # multiscale - EDSR
+        get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
+        get_checkpoints_path("multiscale/SR_EDSR_4_52.pth"),
+        # multiscale - FastEDSR
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_4.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_8.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_16.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_32.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_64.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_128.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_8.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_16.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_32.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_48.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_256.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_6_32.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_6_256.pth"),
+        # multiscale - IMDN
+        get_checkpoints_path("multiscale/SR_IMDN_2_48.pth"),
+        get_checkpoints_path("multiscale/SR_IMDN_2_96.pth"),
+        # multiscale - RFDN
+        get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_2_48.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_2_96.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_4_16.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_4_48.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
     ]
+
+    if UPSCALE_FACTOR == 2:
+        CHECKPOINT_PATHS += [
+            # 2x - EDSR
+            get_checkpoints_path("2x/SR_EDSR_2x_0_32.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_1_32.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_1_128.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_1_256.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_2_32.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_2_48.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_2_52.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_2_96.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_2_128.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_2_256.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_4_32.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_4_52.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_4_256.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_6_12.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_16_64.pth"),
+            get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"),
+            # 2x - FastEDSR
+            get_checkpoints_path("2x/SR_FastEDSR_2x_1_4.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_1_8.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_1_16.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_1_32.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_1_64.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_1_128.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_2_4.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_2_8.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_2_16.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_2_32.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_2_64.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_2_128.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_4_8.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_4_16.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_4_32.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_4_64.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_4_128.pth"),
+            get_checkpoints_path("2x/SR_FastEDSR_2x_8_16.pth"),
+            # 2x - IMDN
+            get_checkpoints_path("2x/SR_IMDN_2x_1_48.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_1_64.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_1_96.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_1_128.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_1_256.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_2_48.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_2_96.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_2_128.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_4_16.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_4_52.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_4_256.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_5_16.pth"),
+            get_checkpoints_path("2x/SR_IMDN_2x_6_64.pth"),
+            # 2x - RFDN
+            get_checkpoints_path("2x/SR_RFDN_2x_1_4.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_48.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_64.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_96.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_128.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_256.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_16.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_48.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_52.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_64.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_96.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_128.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_256.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_4_16.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_4_48.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_4_52.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_4_96.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_4_128.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_4_256.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_6_48.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_6_52.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_6_64.pth"),
+            # 2x - SRCNN
+            get_checkpoints_path("2x/SR_SRCNN_2x.pth"),
+            # 2x - VDSR
+            get_checkpoints_path("2x/SR_VDSR_2x_18_64.pth"),
+        ]
+
+    if UPSCALE_FACTOR == 3:
+        CHECKPOINT_PATHS += [
+            # 3x - EDSR
+            get_checkpoints_path("3x/SR_EDSR_3x_2_48.pth"),
+            get_checkpoints_path("3x/SR_EDSR_3x_2_64.pth"),
+            get_checkpoints_path("3x/SR_EDSR_3x_4_48.pth"),
+            get_checkpoints_path("3x/SR_EDSR_3x_6_12.pth"),
+            # 3x - FastEDSR
+            get_checkpoints_path("3x/SR_FastEDSR_3x_1_4.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_1_8.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_1_16.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_1_32.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_1_64.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_1_128.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_2_4.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_2_8.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_2_16.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_2_32.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_2_64.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_2_128.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_4_8.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_4_16.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_4_32.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_4_64.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_4_128.pth"),
+            get_checkpoints_path("3x/SR_FastEDSR_3x_8_16.pth"),
+            # 3x - IMDN
+            get_checkpoints_path("3x/SR_IMDN_3x_2_48.pth"),
+            get_checkpoints_path("3x/SR_IMDN_3x_4_48.pth"),
+            get_checkpoints_path("3x/SR_IMDN_3x_6_64.pth"),
+            # 3x - RFDN
+            get_checkpoints_path("3x/SR_RFDN_3x_1_128.pth"),
+            get_checkpoints_path("3x/SR_RFDN_3x_2_48.pth"),
+            get_checkpoints_path("3x/SR_RFDN_3x_2_128.pth"),
+            get_checkpoints_path("3x/SR_RFDN_3x_4_48.pth"),
+            get_checkpoints_path("3x/SR_RFDN_3x_6_48.pth"),
+            get_checkpoints_path("3x/SR_RFDN_3x_6_52.pth"),
+        ]
+
+    if UPSCALE_FACTOR == 4:
+        CHECKPOINT_PATHS += [
+            # 4x - EDSR
+            get_checkpoints_path("4x/SR_EDSR_4x_2_48.pth"),
+            get_checkpoints_path("4x/SR_EDSR_4x_2_64.pth"),
+            get_checkpoints_path("4x/SR_EDSR_4x_4_48.pth"),
+            get_checkpoints_path("4x/SR_EDSR_4x_6_12.pth"),
+            # 4x - ESRGAN
+            get_checkpoints_path("4x/SR_ESRGAN_4x_23_64_32.pth"),
+            # 4x - FastEDSR
+            get_checkpoints_path("4x/SR_FastEDSR_4x_1_4.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_1_8.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_1_16.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_1_32.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_1_64.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_1_128.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_2_4.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_2_8.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_2_16.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_2_32.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_2_64.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_2_128.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_4_8.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_4_16.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_4_32.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_4_64.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_4_128.pth"),
+            get_checkpoints_path("4x/SR_FastEDSR_4x_8_16.pth"),
+            # 4x - IMDN
+            get_checkpoints_path("4x/SR_IMDN_4x_2_48.pth"),
+            get_checkpoints_path("4x/SR_IMDN_4x_4_48.pth"),
+            get_checkpoints_path("4x/SR_IMDN_4x_6_64.pth"),
+            # 4x - RFDN
+            get_checkpoints_path("4x/SR_RFDN_4x_1_128.pth"),
+            get_checkpoints_path("4x/SR_RFDN_4x_2_48.pth"),
+            get_checkpoints_path("4x/SR_RFDN_4x_2_128.pth"),
+            get_checkpoints_path("4x/SR_RFDN_4x_4_48.pth"),
+            get_checkpoints_path("4x/SR_RFDN_4x_6_48.pth"),
+            get_checkpoints_path("4x/SR_RFDN_4x_6_52.pth"),
+        ]
 
     #####################################################
     if len(CHECKPOINT_PATHS) == 0:
@@ -86,10 +274,9 @@ if __name__ == "__main__":
             print("=" * 50)
             print(f"Checkpoint: {checkpoint_path.stem}")
 
-            # Load once for param count + config name; the backends reload the checkpoint themselves.
-            model, model_conf = load_model_from_checkpoint(checkpoint_path, "cpu")
+            # Load once only for the param count; the backends reload the checkpoint themselves.
+            model, _ = load_model_from_checkpoint(checkpoint_path, "cpu")
             model.upscale_factor = UPSCALE_FACTOR
-            name = model_conf['checkpoint_name']
             total_params = sum(p.numel() for p in model.parameters())
             del model
             print("-" * 30)
@@ -106,9 +293,9 @@ if __name__ == "__main__":
 
                 print(f"\n>>> {model_name} @ {label} ({video_path.name}) [{RUNTYPE}]")
                 try:
-                    metrics = build_evaluator(checkpoint_path, name, video_path).evaluate()
+                    metrics = build_evaluator(checkpoint_path, model_name, video_path).evaluate()
                 except RuntimeError as e:
-                    print(f"Skipping ({name} @ {label}): {e}")
+                    print(f"Skipping ({model_name} @ {label}): {e}")
                     torch.cuda.empty_cache()
                     metrics = {stage: "" for stage in STAGES}
 

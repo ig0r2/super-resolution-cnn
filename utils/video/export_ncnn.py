@@ -1,8 +1,8 @@
 import os
+import shutil
 from pathlib import Path
 
 import numpy as np
-import torch
 import ncnn
 import pnnx
 
@@ -11,32 +11,34 @@ _IN_BLOB = "in0"
 _OUT_BLOB = "out0"
 
 
-def export_ncnn(model, out_dir, base_tag, input_hw):
-    """Konvertuje bare torch model u ncnn (.param/.bin, FP16) preko pnnx-a i kesira na disk.
+def export_ncnn(onnx_path, out_dir, base_tag, input_hw):
+    """Konvertuje bare-model ONNX u ncnn (.param/.bin, FP16) preko pnnx-a i kesira na disk.
 
-    ncnn je size-agnostic (fully-conv + relative Interp scale), pa jedna konverzija radi na bilo
-    kojoj rezoluciji -- input_hw je samo primer oblika za trace.
+    Izvor je bare ONNX (CHW RGB) -- NCNNRunner i dalje radi BGR<->RGB / normalize / clamp. ncnn je
+    size-agnostic (fully-conv + relative Interp scale), pa je input_hw samo primer oblika koji pnnx
+    trazi za onnx ulaz; keš je ionako po rezoluciji.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     param_path = out_dir / f"{base_tag}.ncnn.param"
     bin_path = out_dir / f"{base_tag}.ncnn.bin"
 
-    model = model.eval().cpu().float()
-    dummy = torch.rand(1, 3, input_hw[0], input_hw[1])
-
-    # pnnx embeds output paths into a generated .py it re-imports; under C:\Users\... an absolute
-    # path trips a '\U' unicodeescape crash, so convert from inside out_dir with relative names.
+    # pnnx.convert re-imports a generated _pnnx.py that embeds file paths; an absolute C:\Users\...
+    # path trips a '\U' unicodeescape crash, so run from inside out_dir with a LOCAL relative copy of
+    # the ONNX and relative output names (same trick the old bare-model export used).
+    local_onnx = out_dir / f"{base_tag}.onnx"
+    shutil.copyfile(onnx_path, local_onnx)
     prev_cwd = os.getcwd()
     try:
         os.chdir(out_dir)
-        pnnx.export(model, f"{base_tag}.pt", inputs=dummy,
-                    ncnnparam=f"{base_tag}.ncnn.param", ncnnbin=f"{base_tag}.ncnn.bin", fp16=True)
+        pnnx.convert(f"{base_tag}.onnx",
+                     input_shapes=[[1, 3, input_hw[0], input_hw[1]]], input_types=["f32"],
+                     ncnnparam=f"{base_tag}.ncnn.param", ncnnbin=f"{base_tag}.ncnn.bin", fp16=True)
     finally:
         os.chdir(prev_cwd)
 
-    # pnnx also dumps .pt / .pnnx.* / *_pnnx.py / *_ncnn.py intermediates next to the output; keep
-    # only the ncnn engine files.
+    # pnnx also dumps the local .onnx copy + .pnnx.* / *_pnnx.py / *_ncnn.py intermediates next to the
+    # output; keep only the ncnn engine files (the persistent ONNX cache lives elsewhere).
     for leftover in out_dir.glob(f"{base_tag}*"):
         if leftover.is_file() and leftover not in (param_path, bin_path):
             leftover.unlink()
