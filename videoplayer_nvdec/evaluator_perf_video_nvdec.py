@@ -64,11 +64,9 @@ class EvaluatorPerfVideoNVDEC:
 
         def full(i):
             out = runner(decoder.frame(i % n))
-            x = out.unsqueeze(0).float()
-            x = F.interpolate(x, size=target_hw, mode="bicubic", align_corners=False)
-            x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
-            return x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy()
+            return self._display(out, target_hw)
 
+        self._open_display(target_hw)
         try:
             fixed = decoder.frame(0)  # GPU-resident frame for the SR-only measurement
             decode_fps = self._time("decode", decode)
@@ -85,9 +83,28 @@ class EvaluatorPerfVideoNVDEC:
 
             return {"decode": decode_fps, "sr": sr_fps, "e2e": e2e_fps, "full": full_fps}
         finally:
+            self._close_display()
             del runner, decoder
             gc.collect()
             torch.cuda.empty_cache()
+
+    # -- display step (overridden by the CUDA-GL subclass) --------------------------------
+    def _open_display(self, target_hw):
+        """Hook: set up the display target before the 'full' timing (no-op for the cv2/D2H path)."""
+
+    def _close_display(self):
+        """Hook: tear down the display target after timing (no-op for the cv2/D2H path)."""
+
+    def _display(self, out, target_hw):
+        """(3,H*s,W*s) uint8 RGB CUDA -> GPU bicubic downscale + BGR + device->host copy to numpy.
+
+        This is the real cv2 display path: the returned numpy array is what cv2.imshow would show,
+        and .cpu() forces the copy to complete so the 'full' timing includes the D2H transfer.
+        """
+        x = out.unsqueeze(0).float()
+        x = F.interpolate(x, size=target_hw, mode="bicubic", align_corners=False)
+        x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
+        return x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy()
 
     def _time(self, label, fn):
         for i in range(self.warmup_runs):
