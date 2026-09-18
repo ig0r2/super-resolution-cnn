@@ -13,19 +13,23 @@ from utils.logger import Logger
 from videoplayer.evaluator_perf_video_cv2 import EvaluatorPerfVideoCV2
 from videoplayer_nvdec.evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
 from videoplayer_nvdec.evaluator_perf_video_nvdec_gl import EvaluatorPerfVideoNVDECGL
+from videoplayer_gl.evaluator_perf_video_gl import EvaluatorPerfVideoGL
 
 # CPU decode (videoplayer/, cv2.VideoCapture): "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
 # GPU decode (videoplayer_nvdec/, NVDEC):      "tensorrt-nvdec" (D2H->cv2) / "tensorrt-nvdec-gl" (zero-copy CUDA-GL)
+# Pure OpenGL (videoplayer_gl/, NVDEC decode): "opengl" (model compiled to GLSL shaders, no ML runtime)
 # "tensorrt-nvdec" and "tensorrt-nvdec-gl" differ only in the 'full' (display) stage; decode/sr/e2e are identical.
+# "opengl" supports only SR_FastEDSR_Multi checkpoints; other architectures are recorded blank.
 # "tensorrt-pt2" is the torch_tensorrt .pt2 path: use it for large models where "tensorrt  engine build OOMs
 
 Runtype = Literal[
-    "tensorrt", "tensorrt-pt2", "tensorrt-nvdec", "tensorrt-nvdec-gl", "ncnn-vulkan",
+    "tensorrt", "tensorrt-pt2", "tensorrt-nvdec", "tensorrt-nvdec-gl", "opengl", "ncnn-vulkan",
     "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino", "onnxruntime-directml",
     "onnxruntime-cpu"]
 
 NVDEC_RUNTYPE = "tensorrt-nvdec"
 NVDEC_GL_RUNTYPE = "tensorrt-nvdec-gl"
+GL_RUNTYPE = "opengl"
 STAGES = ("decode", "sr", "e2e", "full")
 
 
@@ -33,7 +37,7 @@ STAGES = ("decode", "sr", "e2e", "full")
 
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[2, 3, 4] = 2
-    RUNTYPE: Runtype = "tensorrt-nvdec-gl"
+    RUNTYPE: Runtype = "opengl"
 
     SKIP_EVALUATED = True
     WARMUP_RUNS = 10
@@ -251,6 +255,10 @@ if __name__ == "__main__":
 
 
     def build_evaluator(checkpoint_path, name, video_path):
+        if RUNTYPE == GL_RUNTYPE:
+            return EvaluatorPerfVideoGL(
+                checkpoint_path=checkpoint_path, name=name, video_path=video_path,
+                upscale_factor=UPSCALE_FACTOR, warmup_runs=WARMUP_RUNS, iterations=ITERATIONS)
         if RUNTYPE in (NVDEC_RUNTYPE, NVDEC_GL_RUNTYPE):
             evaluator_cls = EvaluatorPerfVideoNVDECGL if RUNTYPE == NVDEC_GL_RUNTYPE else EvaluatorPerfVideoNVDEC
             return evaluator_cls(
