@@ -175,7 +175,7 @@ class NCNNBackend:
 
         # ncnn files first, otherwise convert from .onnx, exporting from checkpoint if no .onnx
         if not param_path.exists():
-            onnx_path = get_onnx(checkpoint_path, cache_paths.onnx_ncnn(tag), input_size, upscale_factor, wrap=False)
+            onnx_path = get_onnx(checkpoint_path, cache_paths.onnx(tag), input_size, upscale_factor, wrap=False)
             _log(f"Converting ncnn from ONNX ({input_size[0]}x{input_size[1]}) -> {param_path.name} ...")
             t0 = time.perf_counter()
             export_ncnn(onnx_path, param_path.parent, tag, (input_size[0], input_size[1]))

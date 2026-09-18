@@ -5,7 +5,7 @@ built them, so the run players and the perf evaluators share the same files inst
 rebuilding into its own folder:
 
     exports/onnx_cv2/{tag}.onnx        HWC BGR wrapper  (TRT engine build + onnxruntime)
-    exports/onnx_ncnn/{tag}.onnx       CHW RGB bare model (ncnn/pnnx conversion source)
+    exports/onnx/{tag}.onnx            CHW RGB bare model (ncnn/pnnx source; reusable by any bare-model backend)
     exports/onnx_nvdec/{tag}.onnx      CHW RGB wrapper  (NVDEC TRT engine build)
     exports/trt_cv2/{tag}.engine       cv2-decode TensorRT engine
     exports/trt_nvdec/{tag}.engine     NVDEC-decode TensorRT engine
@@ -27,8 +27,8 @@ def pt2_cv2(tag):
     return get_project_root(f"exports/pt2_cv2/{tag}.pt2")
 
 
-def onnx_ncnn(tag):
-    return get_project_root(f"exports/onnx_ncnn/{tag}.onnx")
+def onnx(tag):
+    return get_project_root(f"exports/onnx/{tag}.onnx")
 
 
 def ncnn_paths(tag):
