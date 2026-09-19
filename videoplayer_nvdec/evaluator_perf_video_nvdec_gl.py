@@ -9,18 +9,18 @@ class EvaluatorPerfVideoNVDECGL(EvaluatorPerfVideoNVDEC):
     """
     CUDA-GL display variant of EvaluatorPerfVideoNVDEC (runtype "tensorrt-nvdec-gl").
 
-    decode / sr / e2e are measured identically to the base evaluator; only the 'full' stage
-    differs, and it is kept a fair analog of the base one. The base 'full' stops at .cpu().numpy()
+    decode / sr are measured identically to the base evaluator; only the 'display' stage (and thus
+    'total') differs, and it is kept a fair analog of the base one. The base 'display' stops at .cpu().numpy()
     -- i.e. it measures getting the frame off the GPU to where cv2.imshow needs it, NOT the imshow
     blit itself. The zero-copy analog is the same handoff with the D2H PCIe copy replaced by a
     device->device copy into a CUDA-registered GL texture. So both columns measure "SR + downscale
     + deliver the frame to the display surface," and their difference isolates exactly the
     transfer saving (D2H copy vs D2D texture upload); neither includes the final present/blit.
 
-    We deliberately do NOT render/swap/glFinish per frame here: that would force a per-frame CPU-GPU
-    stall and measure present latency instead of throughput, and would be asymmetric with the base
-    (which never presents). The upload's cudaMemcpy runs on the default stream, so the once-per-run
-    torch.cuda.synchronize() in _time captures it. A hidden (offscreen) GL context is still needed
+    We deliberately do NOT render/swap/glFinish per frame here: that would measure present latency
+    instead of throughput, and would be asymmetric with the base (which never presents). The
+    upload's cudaMemcpy runs on the default stream, so the per-part torch.cuda.synchronize() the
+    base loop does after the display step captures it. A hidden (offscreen) GL context is still needed
     because the texture must be a real GL object registered with CUDA; visible=False just avoids
     popping a window per model during a sweep.
     """

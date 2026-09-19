@@ -9,7 +9,7 @@ from videoplayer.scaling import choose_auto_scale
 from .decoder import NvDecoder
 from .backend import TRTBackendNVDEC
 
-# Reference screen used to derive the display downscale target, so the "full" measurement is
+# Reference screen used to derive the display downscale target, so the "display" measurement is
 # deterministic and independent of whatever monitor the eval happens to run on.
 _REF_SCREEN = (1080, 1920)
 
@@ -19,18 +19,19 @@ class EvaluatorPerfVideoNVDEC:
     Speed evaluation for the NVDEC-decode SR pipeline (videoplayer_nvdec), the NVDEC counterpart
     of videoplayer.evaluator_perf_video_cv2.EvaluatorPerfVideoCV2.
 
-    Unlike the OpenCV evaluator (which feeds a fixed synthetic frame through the model and only
-    times inference), this decodes real frames on the GPU via NVDEC and reports a per-stage
-    breakdown, so you can see *where* the pipeline is bound:
+    This decodes real frames on the GPU via NVDEC. A single 'total' loop of `iterations` runs the
+    whole pipeline and times each part in-line (with a cuda sync per part, since the stages are
+    async on the GPU), so every stage is measured on the same frames in one pass instead of a
+    separate loop per stage. All values are average milliseconds per frame:
 
-      - decode_fps : NVDEC decode alone (the hard ceiling the pipeline can never beat)
-      - sr_fps     : TensorRT SR alone on a GPU-resident frame (isolates the model)
-      - e2e_fps    : decode + SR back to back (what the player's upscale step sustains)
-      - full_fps   : decode + SR + GPU bicubic downscale + device->host copy (real display path)
+      - decode  : NVDEC decode alone (the hard floor the pipeline can never beat)
+      - sr      : TensorRT SR alone on the decoded frame (isolates the model)
+      - display : GPU bicubic downscale + device->host copy alone
+      - total   : decode + SR + display (the real display path)
 
-    Small models: sr_fps >> decode_fps, so e2e/full saturate near the decode/overhead floor -> a
-    faster model buys little. Large models: sr_fps collapses and dominates e2e/full -> the model
-    is the bottleneck. That crossover is exactly what these columns expose.
+    Small models: sr is small next to decode, so total sits near the decode/overhead floor -> a
+    faster model buys little. Large models: sr grows and dominates total -> the model is the
+    bottleneck. That crossover is exactly what these columns expose.
 
     Uses TRTBackendNVDEC, so it shares the exports/trt_nvdec engine cache with run_trt_nvdec.py.
     """
@@ -59,29 +60,34 @@ class EvaluatorPerfVideoNVDEC:
         tag = f"{self.name}_{h}x{w}_{self.upscale_factor}x"
         runner = TRTBackendNVDEC(self.checkpoint_path, tag, (h, w), self.upscale_factor)
 
-        def decode(i):
-            return decoder.frame(i % n)
-
-        def full(i):
-            out = runner(decoder.frame(i % n))
-            return self._display(out, target_hw)
+        def total_step(i):
+            self._display(runner(decoder.frame(i % n)), target_hw)
 
         self._open_display(target_hw)
         try:
-            fixed = decoder.frame(0)  # GPU-resident frame for the SR-only measurement
-            decode_fps = self._time("decode", decode)
-            sr_fps = self._time("sr", lambda _i: runner(fixed))
-            e2e_fps = self._time("e2e (decode+SR)", lambda i: runner(decoder.frame(i % n)))
-            full_fps = self._time("full (decode+SR+display)", full)
+            # Warm up the whole pipeline, then time each part inside one 'total' loop. Every stage
+            # is async on the GPU, so a cuda sync bounds each part before reading the clock.
+            for i in range(self.warmup_runs):
+                total_step(i)
+            torch.cuda.synchronize()
 
-            print("-" * 30)
-            print(f"decode : {decode_fps}")
-            print(f"sr     : {sr_fps}")
-            print(f"e2e    : {e2e_fps}")
-            print(f"full   : {full_fps}")
-            print("-" * 30)
+            totals = {"decode": 0.0, "sr": 0.0, "display": 0.0}
+            for i in range(self.iterations):
+                t0 = time.perf_counter()
+                frame = decoder.frame(i % n)
+                torch.cuda.synchronize()
+                t1 = time.perf_counter()
+                out = runner(frame)
+                torch.cuda.synchronize()
+                t2 = time.perf_counter()
+                self._display(out, target_hw)
+                torch.cuda.synchronize()      # base: D2H .cpu() syncs; GL: D2D upload on default stream
+                t3 = time.perf_counter()
+                totals["decode"] += t1 - t0
+                totals["sr"] += t2 - t1
+                totals["display"] += t3 - t2
 
-            return {"decode": decode_fps, "sr": sr_fps, "e2e": e2e_fps, "full": full_fps}
+            return self._summarize(totals)
         finally:
             self._close_display()
             del runner, decoder
@@ -90,7 +96,7 @@ class EvaluatorPerfVideoNVDEC:
 
     # -- display step (overridden by the CUDA-GL subclass) --------------------------------
     def _open_display(self, target_hw):
-        """Hook: set up the display target before the 'full' timing (no-op for the cv2/D2H path)."""
+        """Hook: set up the display target before the 'display' timing (no-op for the cv2/D2H path)."""
 
     def _close_display(self):
         """Hook: tear down the display target after timing (no-op for the cv2/D2H path)."""
@@ -99,25 +105,25 @@ class EvaluatorPerfVideoNVDEC:
         """(3,H*s,W*s) uint8 RGB CUDA -> GPU bicubic downscale + BGR + device->host copy to numpy.
 
         This is the real cv2 display path: the returned numpy array is what cv2.imshow would show,
-        and .cpu() forces the copy to complete so the 'full' timing includes the D2H transfer.
+        and .cpu() forces the copy to complete so the 'display' timing includes the D2H transfer.
         """
         x = out.unsqueeze(0).float()
         x = F.interpolate(x, size=target_hw, mode="bicubic", align_corners=False)
         x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
         return x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy()
 
-    def _time(self, label, fn):
-        for i in range(self.warmup_runs):
-            fn(i)
-        torch.cuda.synchronize()
+    def _summarize(self, totals):
+        decode = totals["decode"] / self.iterations * 1000
+        sr = totals["sr"] / self.iterations * 1000
+        display = totals["display"] / self.iterations * 1000
+        total = decode + sr + display
 
-        start = time.perf_counter()
-        for i in range(self.iterations):
-            fn(i)
-        torch.cuda.synchronize()
-        total = time.perf_counter() - start
+        print("-" * 30)
+        print(f"decode  : {decode:8.2f} ms")
+        print(f"sr      : {sr:8.2f} ms")
+        print(f"display : {display:8.2f} ms")
+        print(f"total   : {total:8.2f} ms")
+        print("-" * 30)
 
-        avg_ms = (total / self.iterations) * 1000
-        fps = 1.0 / (avg_ms / 1000)
-        print(f"  {label:28s} {avg_ms:7.2f} ms/frame  ->  {fps:8.1f} FPS")
-        return f"{fps:.2f}"
+        return {"decode": f"{decode:.2f}", "sr": f"{sr:.2f}",
+                "display": f"{display:.2f}", "total": f"{total:.2f}"}

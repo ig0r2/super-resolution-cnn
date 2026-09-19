@@ -1,15 +1,16 @@
 """
 Speed evaluation for the pure-OpenGL SR pipeline (videoplayer_gl), runtype "opengl".
 
-Same four-stage breakdown and reporting as EvaluatorPerfVideoNVDEC, so its CSV row lines up
-column-for-column with the TensorRT rows in results_{N}x_video_FPS.csv:
+Same four-stage breakdown and reporting as EvaluatorPerfVideoNVDEC (one 'total' loop that times
+each part in-line, average milliseconds per frame), so its CSV row lines up column-for-column with
+the TensorRT rows in results_{N}x_video_ms.csv:
 
-  - decode : NVDEC decode alone (identical to the TRT evaluators)
-  - sr     : the SR compute alone on a GPU-resident frame = CUDA->GL input upload + the shader
-             graph. Unlike TRT (which consumes the CUDA frame directly), the input upload is an
-             unavoidable part of running the shaders, so it is counted here.
-  - e2e    : decode + sr back to back (what the player's upscale step sustains)
-  - full   : decode + sr + the display draw. There is no device->host copy or bicubic downscale:
+  - decode  : NVDEC decode alone (identical to the TRT evaluators)
+  - sr      : the SR compute alone on the decoded frame = CUDA->GL input upload + the shader
+              graph. Unlike TRT (which consumes the CUDA frame directly), the input upload is an
+              unavoidable part of running the shaders, so it is counted here.
+  - display : the display draw alone (see 'total').
+  - total   : decode + sr + the display draw. There is no device->host copy or bicubic downscale:
              the SR output already lives in a GL texture on the display surface, so the GL analog
              of the TRT "downscale + deliver" stage is the letterboxed draw into the framebuffer
              (buffer swap / vsync excluded, matching the TRT evaluators which never present).
@@ -33,7 +34,7 @@ from videoplayer.scaling import choose_auto_scale
 from .build import build_engine
 from videoplayer_nvdec.decoder import NvDecoder
 
-# Reference screen for the display downscale target, so "full" is monitor-independent (matches
+# Reference screen for the display downscale target, so "display" is monitor-independent (matches
 # EvaluatorPerfVideoNVDEC).
 _REF_SCREEN = (1080, 1920)
 
@@ -65,55 +66,55 @@ class EvaluatorPerfVideoGL:
                                     visible=False, chunk_size=self.chunk_size)
         print(f"GL graph: {meta['num_passes']} passes (num_blocks={meta['num_blocks']}, nf={meta['nf']})")
 
-        def decode(i):
-            return decoder.frame(i % n)
-
-        def sr(_i):
-            engine.infer(fixed)
-
-        def e2e(i):
-            engine.infer(decoder.frame(i % n))
-
-        def full(i):
+        def total_step(i):
             engine.infer(decoder.frame(i % n))
             engine.draw_final()
 
         try:
-            fixed = decoder.frame(0)  # GPU-resident frame for the SR-only measurement
-            decode_fps = self._time("decode", decode, gl=False)
-            sr_fps = self._time("sr", sr, gl=True)
-            e2e_fps = self._time("e2e (decode+SR)", e2e, gl=True)
-            full_fps = self._time("full (decode+SR+display)", full, gl=True)
+            # Warm up the whole pipeline, then time each part inside one 'total' loop. decode is a
+            # CUDA stage (cuda sync); sr/display run on the GL queue, so glFinish bounds them.
+            for i in range(self.warmup_runs):
+                total_step(i)
+            self._sync(gl=True)
 
-            print("-" * 30)
-            print(f"decode : {decode_fps}")
-            print(f"sr     : {sr_fps}")
-            print(f"e2e    : {e2e_fps}")
-            print(f"full   : {full_fps}")
-            print("-" * 30)
+            totals = {"decode": 0.0, "sr": 0.0, "display": 0.0}
+            for i in range(self.iterations):
+                t0 = time.perf_counter()
+                frame = decoder.frame(i % n)
+                self._sync(gl=False)          # finishes NVDEC decode
+                t1 = time.perf_counter()
+                engine.infer(frame)
+                self._sync(gl=True)           # finishes CUDA->GL upload + the shader passes
+                t2 = time.perf_counter()
+                engine.draw_final()
+                self._sync(gl=True)           # finishes the display draw on the GL queue
+                t3 = time.perf_counter()
+                totals["decode"] += t1 - t0
+                totals["sr"] += t2 - t1
+                totals["display"] += t3 - t2
 
-            return {"decode": decode_fps, "sr": sr_fps, "e2e": e2e_fps, "full": full_fps}
+            return self._summarize(totals)
         finally:
             engine.close()
             del decoder
             gc.collect()
             torch.cuda.empty_cache()
 
-    def _time(self, label, fn, gl: bool):
-        for i in range(self.warmup_runs):
-            fn(i)
-        self._sync(gl)
+    def _summarize(self, totals):
+        decode = totals["decode"] / self.iterations * 1000
+        sr = totals["sr"] / self.iterations * 1000
+        display = totals["display"] / self.iterations * 1000
+        total = decode + sr + display
 
-        start = time.perf_counter()
-        for i in range(self.iterations):
-            fn(i)
-        self._sync(gl)
-        total = time.perf_counter() - start
+        print("-" * 30)
+        print(f"decode  : {decode:8.2f} ms")
+        print(f"sr      : {sr:8.2f} ms")
+        print(f"display : {display:8.2f} ms")
+        print(f"total   : {total:8.2f} ms")
+        print("-" * 30)
 
-        avg_ms = (total / self.iterations) * 1000
-        fps = 1.0 / (avg_ms / 1000)
-        print(f"  {label:28s} {avg_ms:7.2f} ms/frame  ->  {fps:8.1f} FPS")
-        return f"{fps:.2f}"
+        return {"decode": f"{decode:.2f}", "sr": f"{sr:.2f}",
+                "display": f"{display:.2f}", "total": f"{total:.2f}"}
 
     @staticmethod
     def _sync(gl: bool):

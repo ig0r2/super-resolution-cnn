@@ -69,9 +69,11 @@ class TRTBackend:
         _log(f"TensorRT engine ready in {time.perf_counter() - t0:.1f}s")
         self.runner = TRTRawRunner(engine)
 
-        # Pinned staging buffer for async H2D uploads, allocated lazily on the first frame.
-        # The runner casts uint8 -> fp16 on GPU.
+        # Pinned staging buffers for async H2D upload / D2H download, allocated lazily on the first
+        # frame. The runner casts uint8 -> fp16 on GPU. The returned array is a view into the pinned
+        # output buffer, which is reused across calls (consume it before the next call).
         self._staging = None
+        self._out_staging = None
 
         _log("TRTBackend ready.")
 
@@ -79,7 +81,12 @@ class TRTBackend:
         if self._staging is None or tuple(self._staging.shape) != frame.shape:
             self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
         frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
-        return self.runner(frame_gpu).cpu().numpy()
+        out_gpu = self.runner(frame_gpu)
+        if self._out_staging is None or self._out_staging.shape != out_gpu.shape:
+            self._out_staging = torch.empty(out_gpu.shape, dtype=out_gpu.dtype, pin_memory=True)
+        self._out_staging.copy_(out_gpu, non_blocking=True)
+        torch.cuda.synchronize()
+        return self._out_staging.numpy()
 
 
 class PT2Backend:
@@ -117,8 +124,11 @@ class PT2Backend:
 
         self.model = torch.export.load(str(pt2_path)).module().cuda()
 
-        # Pinned staging buffer for async H2D uploads, allocated lazily on the first frame.
+        # Pinned staging buffers for async H2D upload / D2H download, allocated lazily on the first
+        # frame. The returned array is a view into the pinned output buffer, which is reused across
+        # calls (consume it before the next call).
         self._staging = None
+        self._out_staging = None
 
         _log("PT2Backend ready.")
 
@@ -127,7 +137,12 @@ class PT2Backend:
             self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
         # The compiled module expects fp16 input directly (the raw runner casts on-GPU instead).
         frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True).half()
-        return self.model(frame_gpu).cpu().numpy()
+        out_gpu = self.model(frame_gpu)
+        if self._out_staging is None or self._out_staging.shape != out_gpu.shape:
+            self._out_staging = torch.empty(out_gpu.shape, dtype=out_gpu.dtype, pin_memory=True)
+        self._out_staging.copy_(out_gpu, non_blocking=True)
+        torch.cuda.synchronize()  # finish the async D2H before the numpy view is read
+        return self._out_staging.numpy()
 
 
 class ONNXBackend:
@@ -143,6 +158,8 @@ class ONNXBackend:
 
     def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int, provider: str = "cuda"):
         import onnxruntime as ort
+
+        print(ort.get_available_providers())
 
         onnx_path = get_onnx(checkpoint_path, cache_paths.onnx_cv2(tag), input_size, upscale_factor, wrap=True)
 

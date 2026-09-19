@@ -14,7 +14,7 @@ Runtype: TypeAlias = Literal[
     "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
     "onnxruntime-directml", "onnxruntime-cpu"]
 
-# Reference screen used to derive the display downscale target, so the "full" measurement is
+# Reference screen used to derive the display downscale target, so the "display" measurement is
 # deterministic and independent of whatever monitor the eval happens to run on.
 _REF_SCREEN = (1080, 1920)
 
@@ -41,16 +41,12 @@ class EvaluatorPerfVideoCV2:
     videoplayer_nvdec/evaluator_perf_video_nvdec.py's NVDEC evaluator.
 
     Real frames are decoded with cv2.VideoCapture (CPU decode + host->device upload happens
-    inside the backend), and a per-stage breakdown is reported so you can see where the pipeline
-    is bound:
+    inside the backend). All values are average milliseconds per frame:
 
-      - decode_fps : cv2 CPU decode alone
-      - sr_fps     : backend inference alone on a fixed frame (H2D + model + D2H, as the player pays)
-      - e2e_fps    : decode + backend
-      - full_fps   : decode + backend + cv2 bicubic downscale (the real display path)
-
-    Small models: sr_fps is high and e2e/full saturate near the decode floor -> a faster model
-    buys little. Large models: sr_fps collapses and dominates -> the model is the bottleneck.
+      - decode  : cv2 CPU decode alone
+      - sr      : backend inference alone (H2D + model + D2H, as the player pays)
+      - display : cv2 bicubic downscale to the display size alone
+      - total   : decode + sr + display (the real display path)
     """
 
     def __init__(self, checkpoint_path, name, video_path, runtype: Runtype, upscale_factor=2,
@@ -87,44 +83,49 @@ class EvaluatorPerfVideoCV2:
                 ret, frame = cap.read()
             return frame
 
-        fixed = read_next()  # one decoded BGR frame for the SR-only measurement
-
-        def full(_i=None):
-            out = backend(read_next())
+        def downscale(out):
             return cv2.resize(out, (target_hw[1], target_hw[0]), interpolation=cv2.INTER_CUBIC)
 
+        def total_step():
+            downscale(backend(read_next()))
+
         try:
-            decode_fps = self._time("decode", read_next)
-            sr_fps = self._time("sr", lambda _i: backend(fixed))
-            e2e_fps = self._time("e2e (decode+SR)", lambda _i: backend(read_next()))
-            full_fps = self._time("full (decode+SR+display)", full)
+            for _ in range(self.warmup_runs):
+                total_step()
+            torch.cuda.synchronize()
 
-            print("-" * 30)
-            print(f"decode : {decode_fps}")
-            print(f"sr     : {sr_fps}")
-            print(f"e2e    : {e2e_fps}")
-            print(f"full   : {full_fps}")
-            print("-" * 30)
+            totals = {"decode": 0.0, "sr": 0.0, "display": 0.0}
+            for _ in range(self.iterations):
+                t0 = time.perf_counter()
+                frame = read_next()
+                t1 = time.perf_counter()
+                out = backend(frame)
+                t2 = time.perf_counter()
+                downscale(out)
+                t3 = time.perf_counter()
+                totals["decode"] += t1 - t0
+                totals["sr"] += t2 - t1
+                totals["display"] += t3 - t2
 
-            return {"decode": decode_fps, "sr": sr_fps, "e2e": e2e_fps, "full": full_fps}
+            return self._summarize(totals)
         finally:
             cap.release()
             del backend
             gc.collect()
             torch.cuda.empty_cache()
 
-    def _time(self, label, fn):
-        for i in range(self.warmup_runs):
-            fn(i)
-        torch.cuda.synchronize()
+    def _summarize(self, totals):
+        decode = totals["decode"] / self.iterations * 1000
+        sr = totals["sr"] / self.iterations * 1000
+        display = totals["display"] / self.iterations * 1000
+        total = decode + sr + display
 
-        start = time.perf_counter()
-        for i in range(self.iterations):
-            fn(i)
-        torch.cuda.synchronize()
-        total = time.perf_counter() - start
+        print("-" * 30)
+        print(f"decode  : {decode:8.2f} ms")
+        print(f"sr      : {sr:8.2f} ms")
+        print(f"display : {display:8.2f} ms")
+        print(f"total   : {total:8.2f} ms")
+        print("-" * 30)
 
-        avg_ms = (total / self.iterations) * 1000
-        fps = 1.0 / (avg_ms / 1000)
-        print(f"  {label:28s} {avg_ms:7.2f} ms/frame  ->  {fps:8.1f} FPS")
-        return f"{fps:.2f}"
+        return {"decode": f"{decode:.2f}", "sr": f"{sr:.2f}",
+                "display": f"{display:.2f}", "total": f"{total:.2f}"}
