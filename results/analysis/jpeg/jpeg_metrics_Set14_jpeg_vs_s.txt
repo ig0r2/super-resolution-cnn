@@ -1,0 +1,79 @@
+Izvor: results_2x_Set14_jpeg_half.csv
+Parova (jpeg vs jpeg_s): 3   (d = jpeg_s - jpeg)
+
+Model                         PSNR jpeg  PSNR jpeg_s       dPSNR    SSIM jpeg  SSIM jpeg_s       dSSIM   LPIPS jpeg LPIPS jpeg_s      dLPIPS
+--------------------------------------------------------------------------------------------------------------------------------------------
+FastEDSR_jpeg_4_128               25.40        25.19       -0.21       0.7057       0.7058     +0.0001       0.3268       0.3205     -0.0063
+FastEDSR_jpeg_4_32                25.10        24.87       -0.24       0.6941       0.6925     -0.0016       0.3329       0.3221     -0.0108
+FastEDSR_jpeg_4_64                25.26        25.06       -0.19       0.7004       0.7005     +0.0001       0.3335       0.3230     -0.0105
+--------------------------------------------------------------------------------------------------------------------------------------------
+PROSEK d                                                   -0.21                               -0.0005                               -0.0092
+
+LaTeX tabela (za kopiranje):
+\begin{tabular}{lcccccc}
+\toprule
+Model & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+ & jpeg & jpeg\_s & jpeg & jpeg\_s & jpeg & jpeg\_s \\
+\midrule
+FastEDSR\_jpeg\_4\_128 & \textbf{25.40} & 25.19 & 0.7057 & \textbf{0.7058} & 0.3268 & \textbf{0.3205} \\
+FastEDSR\_jpeg\_4\_32 & \textbf{25.10} & 24.87 & \textbf{0.6941} & 0.6925 & 0.3329 & \textbf{0.3221} \\
+FastEDSR\_jpeg\_4\_64 & \textbf{25.26} & 25.06 & 0.7004 & \textbf{0.7005} & 0.3335 & \textbf{0.3230} \\
+\bottomrule
+\end{tabular}
+
+==================================================
+New session started
+==================================================
+
+Izvor: results_2x_Set14_jpeg_half.csv
+Parova (jpeg vs jpeg_s): 3   (d = jpeg_s - jpeg)
+
+Model                         PSNR jpeg  PSNR jpeg_s       dPSNR    SSIM jpeg  SSIM jpeg_s       dSSIM   LPIPS jpeg LPIPS jpeg_s      dLPIPS
+--------------------------------------------------------------------------------------------------------------------------------------------
+FastEDSR_4_128                    25.40        25.19       -0.21       0.7057       0.7058     +0.0001       0.3268       0.3205     -0.0063
+FastEDSR_4_32                     25.10        24.87       -0.24       0.6941       0.6925     -0.0016       0.3329       0.3221     -0.0108
+FastEDSR_4_64                     25.26        25.06       -0.19       0.7004       0.7005     +0.0001       0.3335       0.3230     -0.0105
+--------------------------------------------------------------------------------------------------------------------------------------------
+PROSEK d                                                   -0.21                               -0.0005                               -0.0092
+
+LaTeX tabela (za kopiranje):
+\begin{tabular}{lcccccc}
+\toprule
+Model & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+ & jpeg & jpeg\_s & jpeg & jpeg\_s & jpeg & jpeg\_s \\
+\midrule
+FastEDSR\_4\_128 & \textbf{25.40} & 25.19 & 0.7057 & \textbf{0.7058} & 0.3268 & \textbf{0.3205} \\
+FastEDSR\_4\_32 & \textbf{25.10} & 24.87 & \textbf{0.6941} & 0.6925 & 0.3329 & \textbf{0.3221} \\
+FastEDSR\_4\_64 & \textbf{25.26} & 25.06 & 0.7004 & \textbf{0.7005} & 0.3335 & \textbf{0.3230} \\
+\bottomrule
+\end{tabular}
+
+==================================================
+New session started
+==================================================
+
+Izvor: results_2x_Set14_jpeg_half.csv
+Parova (jpeg vs jpeg_s): 3   (d = jpeg_s - jpeg)
+
+Model                         PSNR jpeg  PSNR jpeg_s       dPSNR    SSIM jpeg  SSIM jpeg_s       dSSIM   LPIPS jpeg LPIPS jpeg_s      dLPIPS
+--------------------------------------------------------------------------------------------------------------------------------------------
+FastEDSR_4_128                    25.40        25.19       -0.21       0.7057       0.7058     +0.0001       0.3268       0.3205     -0.0063
+FastEDSR_4_32                     25.10        24.87       -0.24       0.6941       0.6925     -0.0016       0.3329       0.3221     -0.0108
+FastEDSR_4_64                     25.26        25.06       -0.19       0.7004       0.7005     +0.0001       0.3335       0.3230     -0.0105
+--------------------------------------------------------------------------------------------------------------------------------------------
+PROSEK d                                                   -0.21                               -0.0005                               -0.0092
+
+LaTeX tabela (za kopiranje):
+\begin{tabular}{lcccccc}
+\toprule
+Model & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+ & jpeg & jpeg\_s & jpeg & jpeg\_s & jpeg & jpeg\_s \\
+\midrule
+FastEDSR\_4\_128 & \textbf{25.40} & 25.19 & 0.7057 & \textbf{0.7058} & 0.3268 & \textbf{0.3205} \\
+FastEDSR\_4\_32 & \textbf{25.10} & 24.87 & \textbf{0.6941} & 0.6925 & 0.3329 & \textbf{0.3221} \\
+FastEDSR\_4\_64 & \textbf{25.26} & 25.06 & 0.7004 & \textbf{0.7005} & 0.3335 & \textbf{0.3230} \\
+\bottomrule
+\end{tabular}

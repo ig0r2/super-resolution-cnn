@@ -85,7 +85,7 @@ class ImageComparison:
         # LR image for left side
         original_image = v2.functional.to_pil_image(self.lr_image_fp.squeeze().clamp(0, 1).cpu())
 
-        grid_cols = min(6, len(images))
+        grid_cols = min(4, len(images))
         grid_rows = int(np.ceil(len(images) / grid_cols))
         x, y, w, h = crop_box
 

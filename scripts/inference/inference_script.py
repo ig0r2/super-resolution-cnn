@@ -15,7 +15,7 @@ from utils.path import get_checkpoints_path, get_project_root
 
 # Inferenca svih slika iz inference/input foldera za izabrani checkpoint ili metod
 
-CHECKPOINT_PATH: Path = get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_s.pth")
+CHECKPOINT_PATH: Path = get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth")
 
 USE_METHOD = False
 METHOD: Literal['nearest', 'bilinear', 'bicubic', 'lanczos'] = "bicubic"

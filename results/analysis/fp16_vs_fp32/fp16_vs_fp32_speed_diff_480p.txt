@@ -1,0 +1,7 @@
+FP16 izvor: results_2x_FPS.csv
+FP32 izvor: results_2x_FPS_fp32.csv
+Uparenih modela: 95  (ubrzanje = FPS FP16 / FPS FP32)
+
+Rez.        N      min   prosek   medijana      max  FP16 brzi   najvece / najmanje ubrzanje
+--------------------------------------------------------------------------------------------
+480p       95     0.35     1.75       1.88     3.47         68   SR_FastEDSR_6_256 / SR_FastEDSR_2x_1_4
