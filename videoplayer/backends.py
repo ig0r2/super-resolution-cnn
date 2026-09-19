@@ -4,8 +4,8 @@ import numpy as np
 import torch
 
 from utils.video.wrapper import VideoWrapperCV2
-from utils.video.export import export_trt, export_onnx_bare
-from utils.video.export_trt_engine import export_onnx_raw, get_raw_trt_engine, TRTRawRunner
+from utils.video.export import export_trt, export_onnx_bare, export_onnx_uint8
+from utils.video.export_trt_engine import get_raw_trt_engine, TRTRawRunner
 from utils.video.export_ncnn import export_ncnn, NCNNRunner
 from videoplayer import cache_paths
 
@@ -27,19 +27,13 @@ def _load_model(checkpoint_path, upscale_factor):
 
 def get_onnx(checkpoint_path, onnx_path, input_size, upscale_factor, *, wrap=True):
     """Return `onnx_path`, exporting it from the checkpoint only if the ONNX is missing.
-
-    This is the single checkpoint->ONNX step every ONNX-based backend goes through, so a cached ONNX
-    means the .pth is never loaded (the checkpoint is only a fallback for building the ONNX):
-
-        wrap=True  -> VideoWrapperCV2 graph (HWC BGR, baked BGR<->RGB / normalize / permute):
-                      the shared cv2 ONNX the TensorRT engine build and onnxruntime both consume.
-        wrap=False -> bare model (CHW RGB): the ncnn/pnnx source; NCNNRunner does the pre/post itself.
+        wrap=True  -> VideoWrapperCV2: for onnx runtime and tensorrt
+        wrap=False -> bare model (CHW RGB): for ncnn/pnnx
     """
     if onnx_path.exists():
         _log(f"Reusing cached ONNX {onnx_path.name}")
         return onnx_path
 
-    # Nothing cached to build from and no checkpoint to export from -> nothing we can do.
     if not checkpoint_path.exists():
         raise RuntimeError(f"No cached ONNX ({onnx_path.name}) and no checkpoint ({checkpoint_path.name})")
 
@@ -49,7 +43,7 @@ def get_onnx(checkpoint_path, onnx_path, input_size, upscale_factor, *, wrap=Tru
          f"({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
     t0 = time.perf_counter()
     if wrap:
-        export_onnx_raw(VideoWrapperCV2(model), onnx_path, (input_size[0], input_size[1]))
+        export_onnx_uint8(VideoWrapperCV2(model), onnx_path, (input_size[0], input_size[1]))
     else:
         export_onnx_bare(model, onnx_path, (input_size[0], input_size[1]))
     _log(f"ONNX export done in {time.perf_counter() - t0:.1f}s")
@@ -150,20 +144,16 @@ class ONNXBackend:
     def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int, provider: str = "cuda"):
         import onnxruntime as ort
 
-        # Shared cv2 ONNX (same file the TensorRT backend builds its engine from); export from the
-        # checkpoint only on a cache miss.
         onnx_path = get_onnx(checkpoint_path, cache_paths.onnx_cv2(tag), input_size, upscale_factor, wrap=True)
 
         _log(f"Creating onnxruntime session (provider={provider}) ...")
         t0 = time.perf_counter()
         self.session = ort.InferenceSession(str(onnx_path), providers=self.PROVIDER_MAP[provider])
         _log(f"onnxruntime session ready in {time.perf_counter() - t0:.1f}s")
-        self.dtype = np.float16
-
         _log("ONNXBackend ready.")
 
     def __call__(self, frame: np.ndarray) -> np.ndarray:
-        return self.session.run(None, {"input": frame.astype(self.dtype)})[0]
+        return self.session.run(None, {"input": frame})[0]
 
 
 class NCNNBackend:

@@ -4,7 +4,7 @@ Artifacts are keyed only by `tag` (model_size_scale) and grouped by kind, NOT by
 built them, so the run players and the perf evaluators share the same files instead of each
 rebuilding into its own folder:
 
-    exports/onnx_cv2/{tag}.onnx        HWC BGR wrapper  (TRT engine build + onnxruntime)
+    exports/onnx_cv2/{tag}.onnx        uint8 HWC BGR wrapper (TRT engine build + onnxruntime)
     exports/onnx/{tag}.onnx            CHW RGB bare model (ncnn/pnnx source; reusable by any bare-model backend)
     exports/onnx_nvdec/{tag}.onnx      CHW RGB wrapper  (NVDEC TRT engine build)
     exports/trt_cv2/{tag}.engine       cv2-decode TensorRT engine

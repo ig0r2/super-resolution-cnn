@@ -1,3 +1,5 @@
+import gc
+
 import torch
 
 
@@ -26,13 +28,18 @@ class VideoWrapperNVDEC(torch.nn.Module):
 def export_onnx_chw(model, onnx_path, input_hw):
     """Export the model to ONNX (FP16) with a static channels-first (3,H,W) GPU input.
 
-    Mirrors utils.video.export_trt_engine.export_onnx_raw but with a CHW dummy instead of the
+    Mirrors utils.video.export.export_onnx_uint8 but with a CHW dummy instead of the
     OpenCV (H,W,3) one, so the resulting TensorRT engine consumes NVDEC RGBP frames directly.
     """
     dtype = torch.float16
     wrapper = model.eval().cuda().to(dtype)
     dummy = torch.randn(3, input_hw[0], input_hw[1], device="cuda", dtype=dtype)
-    torch.onnx.export(
-        wrapper, dummy, str(onnx_path),
-        input_names=["input"], output_names=["output"], opset_version=17, dynamo=False,
-    )
+    try:
+        torch.onnx.export(wrapper, dummy, str(onnx_path), input_names=["input"], output_names=["output"],
+                          opset_version=17, dynamo=False)
+    finally:
+        # Free the VRAM the export reserved
+        wrapper.cpu()
+        del wrapper, dummy
+        gc.collect()
+        torch.cuda.empty_cache()

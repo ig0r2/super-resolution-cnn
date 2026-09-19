@@ -31,6 +31,8 @@ def export_ncnn(onnx_path, out_dir, base_tag, input_hw):
     prev_cwd = os.getcwd()
     try:
         os.chdir(out_dir)
+        # input_types MORA "f32" (usaglaseno sa fp32 bare ONNX-om): sa "f16" pnnx ne spusti Conv u
+        # ncnn i model puca pri ucitavanju. fp16=True i dalje daje fp16 ncnn tezine.
         pnnx.convert(f"{base_tag}.onnx",
                      input_shapes=[[1, 3, input_hw[0], input_hw[1]]], input_types=["f32"],
                      ncnnparam=f"{base_tag}.ncnn.param", ncnnbin=f"{base_tag}.ncnn.bin", fp16=True)

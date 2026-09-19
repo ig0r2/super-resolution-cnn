@@ -8,7 +8,8 @@ class VideoWrapperCV2(torch.nn.Module):
         self.model = model
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x[..., [2, 1, 0]] / 255.0  # BGR [0-255] -> RGB [0-1]
+        x = x.half() / 255.0  # [0-255] uint8 -> [0-1] fp16
+        x = x[..., [2, 1, 0]]  # BGR -> RGB
         x = x.permute(2, 0, 1).unsqueeze(0)  # (H,W,C) -> (1,C,H,W)
         out = self.model(x)
         out = torch.clamp(out, 0.0, 1.0) * 255.0
