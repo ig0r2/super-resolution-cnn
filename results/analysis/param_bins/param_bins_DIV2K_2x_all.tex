@@ -1,0 +1,41 @@
+% Izvor: results_2x_DIV2K_half.csv   modela: 94
+
+\begin{table}[H]
+    \centering
+    \caption{Najbolji model po metrici i opsegu parametara (DIV2K, $\times2$).}
+    \label{tab:param_bins_best_model_2x_DIV2K}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}llll@{}}
+        \toprule
+        Opseg parametara & Najbolji PSNR $\uparrow$ & Najbolji SSIM $\uparrow$ & Najbolji LPIPS $\downarrow$ \\
+        \midrule
+        $<$50\,K & FastEDSR 8/16 (33,260) & FastEDSR 8/16 (0,925) & FastEDSR 8/16 (0,109) \\
+        50\,K--200\,K & FastEDSR 2/64 (33,464) & FastEDSR 2/64 (0,927) & FastEDSR 2/64 (0,102) \\
+        200\,K--500\,K & FastEDSR 4/64 (33,763) & FastEDSR 4/64 (0,930) & FastEDSR 4/64 (0,096) \\
+        500\,K--1\,M & RFDN 2/96 (33,895) & RFDN 2/96 (0,931) & RFDN 2/96 (0,096) \\
+        1\,M--3\,M & RFDN 4/128 (34,254) & RFDN 4/128 (0,934) & RFDN 4/128 (0,094) \\
+        $>$3\,M & RFDN 4/256 (34,484) & RFDN 4/256 (0,936) & EDSR 32/256 (0,088) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Arhitektura sa najboljim prosekom metrike po opsegu parametara (DIV2K, $\times2$).}
+    \label{tab:param_bins_best_arch_2x_DIV2K}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}llll@{}}
+        \toprule
+        Opseg parametara & Najbolji prosek PSNR $\uparrow$ & Najbolji prosek SSIM $\uparrow$ & Najbolji prosek LPIPS $\downarrow$ \\
+        \midrule
+        $<$50\,K & FastEDSR (32,550) & FastEDSR (0,918) & FastEDSR (0,132) \\
+        50\,K--200\,K & FastEDSR (33,296) & FastEDSR (0,926) & FastEDSR (0,108) \\
+        200\,K--500\,K & FastEDSR (33,558) & FastEDSR (0,928) & FastEDSR (0,103) \\
+        500\,K--1\,M & RFDN (33,750) & RFDN (0,930) & VDSR (0,099) \\
+        1\,M--3\,M & RFDN (34,096) & RFDN (0,933) & FastEDSR (0,096) \\
+        $>$3\,M & RFDN (34,325) & RFDN (0,935) & IMDN (0,092) \\
+        \bottomrule
+    \end{tabular}
+\end{table}

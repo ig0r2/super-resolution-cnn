@@ -48,21 +48,24 @@ if __name__ == "__main__":
     # LR_PATH = get_project_root('inference/comparison/input/0879x2_45.jpg')
     # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
 
-    CROP_BOX = (330, 628, 150, 150)  # (x, y, w, h)
-    LR_PATH = get_project_root('inference/comparison/input/0879x2_45.jpg')
-    HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
+    # CROP_BOX = (330, 628, 150, 150)  # (x, y, w, h)
+    # LR_PATH = get_project_root('inference/comparison/input/0879x2_45.jpg')
+    # HR_PATH = get_data_path('DIV2K/DIV2K_valid_HR/0879.png')
 
     UPSCALE_FACTOR = 2
     METHODS = [
-        # 'nearest',
-        # 'bilinear',
+        'nearest',
+        'bilinear',
         'bicubic',
-        # 'lanczos'
+        'lanczos'
     ]
     CHECKPOINT_PATHS = [
-        # get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"),
+        get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"),
+        get_checkpoints_path("2x/SR_SRCNN_2x.pth"),
+        get_checkpoints_path("2x/SR_VDSR_2x_18_64.pth"),
+        get_checkpoints_path("2x/SR_IMDN_2x_4_256.pth"),
         # get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_4_256_GAN.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"),
@@ -74,8 +77,8 @@ if __name__ == "__main__":
         # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
         # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_48.pth"),
         # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"),
         # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"),
         # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256_GAN.pth"),
         # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128_GAN.pth"),

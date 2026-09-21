@@ -1,0 +1,21 @@
+\begin{table}[H]
+    \centering
+    \caption{Prosečan kvalitet namenskih (single-scale) i multi-scale modela iste konfiguracije na skupu DIV2K, po faktoru uvećanja ($\times2$, $\times3$, $\times4$). Boldovan je bolji prosek u paru; strelice označavaju poželjan smer metrike.}
+    \label{tab:multiscale_DIV2K}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lcccccc@{}}
+        \toprule
+        Faktor & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+        \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+         & namenski & multi & namenski & multi & namenski & multi \\
+        \midrule
+        $\times2$ & 33,2844 & \textbf{33,3090} & 0,9253 & \textbf{0,9255} & 0,1122 & \textbf{0,1095} \\
+        $\times3$ & 29,5925 & \textbf{29,6660} & 0,8481 & \textbf{0,8497} & \textbf{0,2496} & 0,2501 \\
+        $\times4$ & 27,7307 & \textbf{27,8560} & 0,7859 & \textbf{0,7893} & 0,3384 & \textbf{0,3364} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

@@ -1,0 +1,45 @@
+% Izvor: results_2x_Set14_half.csv   modela: 94   bin: FPS 480p
+
+\begin{table}[H]
+    \centering
+    \caption{Najbolji model po metrici i opsegu brzine (FPS 480p) (Set14, $\times2$).}
+    \label{tab:fps_bins_best_model_2x_Set14}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        Opseg FPS 480p & Najbolji SSIM $\uparrow$ & Najbolji LPIPS $\downarrow$ \\
+        \midrule
+        $<$30 & RFDN 4/256 (0,880) & EDSR 32/256 (0,094) \\
+        30--45 & RFDN 1/256 (0,877) & IMDN 1/256 (0,101) \\
+        45--60 & RFDN 2/128 (0,877) & RFDN 2/128 (0,101) \\
+        60--90 & EDSR 16/64 (0,877) & IMDN 2/96 (0,099) \\
+        90--120 & FastEDSR 4/128 (0,877) & FastEDSR 4/128 (0,099) \\
+        120--250 & FastEDSR 2/128 (0,875) & FastEDSR 2/128 (0,100) \\
+        250--500 & FastEDSR 4/64 (0,875) & FastEDSR 4/64 (0,100) \\
+        $>$500 & FastEDSR 4/32 (0,873) & FastEDSR 4/32 (0,105) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Arhitektura sa najboljim prosekom metrike po opsegu brzine (FPS 480p) (Set14, $\times2$).}
+    \label{tab:fps_bins_best_arch_2x_Set14}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        Opseg FPS 480p & Najbolji prosek SSIM $\uparrow$ & Najbolji prosek LPIPS $\downarrow$ \\
+        \midrule
+        $<$30 & RFDN (0,879) & IMDN (0,098) \\
+        30--45 & IMDN (0,877) & IMDN (0,101) \\
+        45--60 & RFDN (0,875) & RFDN (0,102) \\
+        60--90 & EDSR (0,875) & IMDN (0,102) \\
+        90--120 & FastEDSR (0,877) & FastEDSR (0,100) \\
+        120--250 & FastEDSR (0,875) & FastEDSR (0,101) \\
+        250--500 & FastEDSR (0,873) & FastEDSR (0,105) \\
+        $>$500 & FastEDSR (0,865) & FastEDSR (0,126) \\
+        \bottomrule
+    \end{tabular}
+\end{table}

@@ -21,11 +21,12 @@ from utils.path import get_results_path, get_logs_path, get_checkpoints_path
 
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[1, 2, 3, 4] = 2
-    TEST_SET: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"] = "Set5"
+    TEST_SET: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"] = "DIV2K"
 
     USE_HALF = True
     EVALUATE_METRICS = True
-    JPEG_DEGRADATION = False
+    JPEG_DEGRADATION = True
+    JPEG_QUALITY = 45  # None -> per-image deterministic quality; int -> fixed quality for all test images
 
     EVALUATE_WITH_TILED = False
 
@@ -36,7 +37,23 @@ if __name__ == "__main__":
     SKIP_EVALUATED = True
 
     CHECKPOINT_PATHS = [
-        # get_checkpoints_path("multiscale/SR_RFDN_4_256_GAN.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_32.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_2_64.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_4_256.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
+
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_jpeg_4_128.pth"),
+
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32_s.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_s.pth"),
+        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"),
     ]
 
     METHODS = [
@@ -57,7 +74,7 @@ if __name__ == "__main__":
 
     if EVALUATE_METRICS:
         test_set = get_test_set(name=TEST_SET, upscale_factor=UPSCALE_FACTOR, preload=len(CHECKPOINT_PATHS) > 1,
-                                normalize=False, jpeg_degradation=JPEG_DEGRADATION)
+                                normalize=False, jpeg_degradation=JPEG_DEGRADATION, jpeg_quality=JPEG_QUALITY)
         evaluator = Evaluator(test_set=test_set, device=device, use_half=USE_HALF, upscale_factor=UPSCALE_FACTOR,
                               use_tiled=EVALUATE_WITH_TILED)
 
@@ -65,8 +82,9 @@ if __name__ == "__main__":
     items_to_evaluate = [{'path': p, 'is_method': False} for p in CHECKPOINT_PATHS]
     items_to_evaluate += [{'method': m, 'is_method': True} for m in METHODS]
 
+    jpeg_suffix = f"_jpeg{JPEG_QUALITY}" if JPEG_QUALITY is not None else "_jpeg"
     csv_path = get_results_path(
-        f"results_{UPSCALE_FACTOR}x_{TEST_SET}{'_jpeg' if JPEG_DEGRADATION else ''}{'_half' if USE_HALF else ''}.csv")
+        f"results_{UPSCALE_FACTOR}x_{TEST_SET}{jpeg_suffix if JPEG_DEGRADATION else ''}{'_half' if USE_HALF else ''}.csv")
 
     for item in items_to_evaluate:
         is_method = item['is_method']

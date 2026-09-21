@@ -73,6 +73,11 @@ def to_float(x):
         return None
 
 
+def zf(value, spec) -> str:
+    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
+    return format(value, spec).replace(".", ",")
+
+
 def keep(name, exclude, archs, include):
     if not name or name in BASELINE_NAMES:
         return False
@@ -176,8 +181,9 @@ def report(summary, fp32_path, fp16_path, n_common):
     print(header)
     print("-" * len(header))
     for m, n, mn, mean_abs, med_abs, mx, worst_model, mean_signed in summary:
-        print(f"{m:<8} {n:>4} {mn:>12.6f} {mean_abs:>12.6f} {med_abs:>12.6f} "
-              f"{mx:>12.6f} {mean_signed:>+12.6f}   {worst_model}")
+        print(f"{m:<8} {n:>4} {zf(mn, '>12.6f')} {zf(mean_abs, '>12.6f')} "
+              f"{zf(med_abs, '>12.6f')} {zf(mx, '>12.6f')} "
+              f"{zf(mean_signed, '>+12.6f')}   {worst_model}")
 
 
 if __name__ == "__main__":

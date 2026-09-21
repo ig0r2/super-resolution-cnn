@@ -135,6 +135,11 @@ def to_float(x):
         return None
 
 
+def zf(value, spec) -> str:
+    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
+    return format(value, spec).replace(".", ",")
+
+
 def label_for(rt):
     return RUNTYPE_LABELS.get(rt, rt)
 
@@ -223,13 +228,13 @@ def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi):
         # oznaka vrednosti u sredini segmenta ako je dovoljno sirok
         for y, l, w in zip(ys, lefts, widths):
             if w >= min_w:
-                ax.text(l + w / 2, y, f"{w:.2f}", va="center", ha="center",
+                ax.text(l + w / 2, y, zf(w, ".2f"), va="center", ha="center",
                         fontsize=7.5, color="white")
 
     # ukupno vreme na kraju reda
     for y, rt in zip(ys, runtypes):
         total = sum(data[rt][c] for c in cols)
-        ax.text(total, y, f" {total:.2f}", va="center", ha="left", fontsize=8.5)
+        ax.text(total, y, f" {zf(total, '.2f')}", va="center", ha="left", fontsize=8.5)
 
     ax.set_yticks(ys)
     ax.set_yticklabels([label_for(rt) for rt in runtypes])
@@ -280,10 +285,10 @@ def run_config(cfg):
     print(f"Izvor: {results_path}  ({cfg.res}, model={model_info})")
     print(f"Backend-ovi: {', '.join(label_for(rt) for rt in runtypes)}")
     for rt in runtypes:
-        parts = "  ".join(f"{STAGE_LABELS.get(s, s)}={data[rt][c]:.2f}"
+        parts = "  ".join(f"{STAGE_LABELS.get(s, s)}={zf(data[rt][c], '.2f')}"
                           for s, c in zip(cfg.stages, cols))
         total = sum(data[rt][c] for c in cols)
-        print(f"  {label_for(rt):<18} {parts}   Ukupno={total:.2f}ms")
+        print(f"  {label_for(rt):<18} {parts}   Ukupno={zf(total, '.2f')}ms")
     print(f"Slika:  {out_path}")
 
 

@@ -1,0 +1,19 @@
+\begin{table}[H]
+    \begin{tabular}{lcccccc}
+        \toprule
+        Model & \multicolumn{3}{c}{SSIM $\uparrow$} & \multicolumn{3}{c}{LPIPS $\downarrow$} \\
+        \cmidrule(lr){2-4}\cmidrule(lr){5-7}
+         & bazni & jpeg & jpeg\_s & bazni & jpeg & jpeg\_s \\
+        \midrule
+        FastEDSR 4/32 & 0,681 & 0,702 & \textbf{0,704} & 0,489 & 0,457 & \textbf{0,446} \\
+        FastEDSR 4/64 & 0,681 & 0,710 & \textbf{0,711} & 0,475 & 0,438 & \textbf{0,426} \\
+        FastEDSR 4/128 & 0,682 & 0,715 & \textbf{0,716} & 0,472 & 0,426 & \textbf{0,417} \\
+        \bottomrule
+    \end{tabular}
+    \caption{Poređenje JPEG modela}
+    \label{tab:jpeg_4x_DIV2K_jpeg_vs_s}
+\end{table}
+
+\noindent Prosečna razlika (jpeg\_s $-$ jpeg): SSIM $+$0,001, LPIPS $-$0,011.
+
+\noindent Prosečna razlika (jpeg\_s $-$ bazni): SSIM $+$0,029, LPIPS $-$0,049.

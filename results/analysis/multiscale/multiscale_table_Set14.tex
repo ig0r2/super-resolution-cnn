@@ -1,0 +1,21 @@
+\begin{table}[H]
+    \centering
+    \caption{Prosečan kvalitet namenskih (single-scale) i multi-scale modela iste konfiguracije na skupu Set14, po faktoru uvećanja ($\times2$, $\times3$, $\times4$). Boldovan je bolji prosek u paru; strelice označavaju poželjan smer metrike.}
+    \label{tab:multiscale_Set14}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lcccccc@{}}
+        \toprule
+        Faktor & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+        \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+         & namenski & multi & namenski & multi & namenski & multi \\
+        \midrule
+        $\times2$ & 29,2787 & \textbf{29,2974} & 0,8701 & \textbf{0,8705} & 0,1128 & \textbf{0,1108} \\
+        $\times3$ & 25,6624 & \textbf{25,6888} & 0,7546 & \textbf{0,7559} & \textbf{0,2594} & 0,2601 \\
+        $\times4$ & 25,0095 & \textbf{25,1116} & 0,6979 & \textbf{0,7015} & 0,3592 & \textbf{0,3558} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

@@ -1,0 +1,41 @@
+% Izvor: results_2x_Set14_half.csv   modela: 63
+
+\begin{table}[H]
+    \centering
+    \caption{Najbolji model po metrici i opsegu parametara (Set14, $\times2$ bez FastEDSR).}
+    \label{tab:param_bins_best_model_2x_Set14}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}llll@{}}
+        \toprule
+        Opseg parametara & Najbolji PSNR $\uparrow$ & Najbolji SSIM $\uparrow$ & Najbolji LPIPS $\downarrow$ \\
+        \midrule
+        $<$50\,K & SRCNN (28,788) & EDSR 0/32 (0,861) & SRCNN (0,135) \\
+        50\,K--200\,K & EDSR 2/48 (29,267) & EDSR 2/48 (0,870) & IMDN 1/64 (0,110) \\
+        200\,K--500\,K & RFDN 1/96 (29,475) & RFDN 1/96 (0,873) & RFDN 4/48 (0,102) \\
+        500\,K--1\,M & RFDN 2/96 (29,604) & RFDN 2/96 (0,876) & IMDN 2/96 (0,099) \\
+        1\,M--3\,M & RFDN 4/128 (29,806) & RFDN 4/128 (0,878) & RFDN 4/128 (0,099) \\
+        $>$3\,M & RFDN 4/256 (29,918) & RFDN 4/256 (0,880) & EDSR 32/256 (0,094) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Arhitektura sa najboljim prosekom metrike po opsegu parametara (Set14, $\times2$ bez FastEDSR).}
+    \label{tab:param_bins_best_arch_2x_Set14}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}llll@{}}
+        \toprule
+        Opseg parametara & Najbolji prosek PSNR $\uparrow$ & Najbolji prosek SSIM $\uparrow$ & Najbolji prosek LPIPS $\downarrow$ \\
+        \midrule
+        $<$50\,K & SRCNN (28,788) & SRCNN (0,860) & SRCNN (0,135) \\
+        50\,K--200\,K & IMDN (29,113) & EDSR (0,868) & IMDN (0,117) \\
+        200\,K--500\,K & IMDN (29,386) & IMDN (0,872) & IMDN (0,105) \\
+        500\,K--1\,M & IMDN (29,520) & RFDN (0,874) & IMDN (0,102) \\
+        1\,M--3\,M & RFDN (29,710) & RFDN (0,877) & IMDN (0,100) \\
+        $>$3\,M & IMDN (29,852) & RFDN (0,879) & IMDN (0,098) \\
+        \bottomrule
+    \end{tabular}
+\end{table}

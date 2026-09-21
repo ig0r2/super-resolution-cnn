@@ -56,6 +56,7 @@ CONFIG_DEFAULTS = {
     "min_params": None,
     "max_params": None,
     "label": None,                  # None -> izvedi iz imena fajla
+    "legend_loc": "lower right",     # pozicija legende (matplotlib loc)
     "dpi": 140,
 }
 
@@ -158,7 +159,7 @@ def ordered_archs(rows: list[dict]) -> list[str]:
     return known + rest
 
 
-def plot_metric(rows, archs, key, label, dpi):
+def plot_metric(rows, archs, key, label, dpi, legend_loc):
     """Jedan panel: metrika `key` (ssim/lpips) naspram broja parametara.
 
     Vraca figuru, ili None ako za tu metriku nema nijedne vrednosti.
@@ -189,12 +190,11 @@ def plot_metric(rows, archs, key, label, dpi):
     if key == "ssim":
         ax.set_ylabel(f"SSIM{suffix}")
         ax.set_title("Kvalitet (SSIM) naspram veličine")
-        ax.legend(loc="lower right", fontsize=9)
     else:
         ax.set_ylabel(f"LPIPS{suffix} — nize je bolje")
         ax.set_title("Perceptualni kvalitet (LPIPS) naspram veličine")
         ax.invert_yaxis()
-        ax.legend(loc="upper right", fontsize=9)
+    ax.legend(loc=legend_loc, fontsize=9)
 
     fig.tight_layout()
     return fig
@@ -234,7 +234,7 @@ def run_config(cfg):
 
     # Dve odvojene slike: SSIM i LPIPS.
     for key, tag in (("ssim", "SSIM"), ("lpips", "LPIPS")):
-        fig = plot_metric(rows, archs, key, label, cfg.dpi)
+        fig = plot_metric(rows, archs, key, label, cfg.dpi, cfg.legend_loc)
         if fig is None:
             print(f"Slika ({tag}): preskocena — nema vrednosti")
             continue

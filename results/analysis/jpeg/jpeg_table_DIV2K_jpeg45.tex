@@ -1,0 +1,20 @@
+\begin{table}[H]
+    \begin{tabular}{lcccccc}
+        \toprule
+        Model & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+        \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+         & bazni & jpeg & bazni & jpeg & bazni & jpeg \\
+        \midrule
+        FastEDSR 4/32 & 27,459 & \textbf{28,529} & 0,778 & \textbf{0,810} & 0,303 & \textbf{0,300} \\
+        FastEDSR 2/64 & 27,464 & \textbf{28,495} & 0,778 & \textbf{0,810} & 0,303 & \textbf{0,300} \\
+        FastEDSR 4/64 & 27,428 & \textbf{28,698} & 0,777 & \textbf{0,815} & 0,299 & \textbf{0,297} \\
+        FastEDSR 4/128 & 27,431 & \textbf{28,828} & 0,777 & \textbf{0,818} & 0,302 & \textbf{0,292} \\
+        RFDN 4/128 & 27,414 & \textbf{28,300} & 0,777 & \textbf{0,810} & \textbf{0,303} & 0,308 \\
+        FastEDSR 4/256 & 27,438 & \textbf{28,887} & 0,778 & \textbf{0,819} & 0,306 & \textbf{0,290} \\
+        \bottomrule
+    \end{tabular}
+    \caption{Poređenje JPEG modela}
+    \label{tab:jpeg_DIV2K_jpeg45}
+\end{table}
+
+\noindent Prosečna razlika (jpeg $-$ bazni): PSNR $+$1,184, SSIM $+$0,036, LPIPS $-$0,005.

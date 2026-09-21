@@ -1,0 +1,26 @@
+\begin{table}[H]
+    \centering
+    \caption{Kvalitet izdvojenih standardnih arhitektura na skupu DIV2K za uvećanje $\times2$. Broj parametara izražen je u milionima i zaokružen na tri decimale. Strelice označavaju poželjan smer promene metrike.}
+    \label{tab:results_2x_DIV2K}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lrrrr@{}}
+        \toprule
+        Model & \shortstack{Parametri\\($10^6$)} & \shortstack{PSNR $\uparrow$\\(dB)} & SSIM $\uparrow$ & LPIPS $\downarrow$ \\
+        \midrule
+        Nearest & --- & 29,2510 & 0,8727 & 0,1558 \\
+        Bilinear & --- & 29,9433 & 0,8687 & 0,2290 \\
+        Bicubic & --- & 31,0447 & 0,8931 & 0,1863 \\
+        Lanczos & --- & 31,5070 & 0,9009 & 0,2053 \\
+        \midrule
+        SRCNN & 0,020 & 32,3977 & 0,9159 & 0,1360 \\
+        VDSR 18/64 & 0,668 & 33,7302 & 0,9295 & 0,0992 \\
+        EDSR 32/256$_{r}$ & 40,730 & 34,3977 & 0,9357 & \textbf{0,0884} \\
+        IMDN 4/256 & 7,528 & 34,2684 & 0,9345 & 0,0916 \\
+        RFDN 4/256 & 10,808 & \textbf{34,4529} & \textbf{0,9358} & 0,0925 \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

@@ -1,0 +1,35 @@
+Skup: Set14   faktori: x2, x3, x4
+Prosek namenskih (single-scale) naspram proseka multi-scale modela.
+
+Faktor      PSNR nam.   PSNR multi       dPSNR    SSIM nam.   SSIM multi       dSSIM   LPIPS nam.  LPIPS multi      dLPIPS
+--------------------------------------------------------------------------------------------------------------------------
+x2            29,2787      29,2974     +0,0187       0,8701       0,8705     +0,0004       0,1128       0,1108     -0,0020
+x3            25,6624      25,6888     +0,0264       0,7546       0,7559     +0,0013       0,2594       0,2601     +0,0007
+x4            25,0095      25,1116     +0,1020       0,6979       0,7015     +0,0036       0,3592       0,3558     -0,0035
+
+x2 pobede -> PSNR: multi bolji 17/22   SSIM: multi bolji 17/22   LPIPS: multi bolji 18/22
+x3 pobede -> PSNR: multi bolji 8/15   SSIM: multi bolji 10/15   LPIPS: multi bolji 9/15
+x4 pobede -> PSNR: multi bolji 11/15   SSIM: multi bolji 11/15   LPIPS: multi bolji 8/15
+
+LaTeX tabela (za kopiranje):
+\begin{table}[H]
+    \centering
+    \caption{Prosečan kvalitet namenskih (single-scale) i multi-scale modela iste konfiguracije na skupu Set14, po faktoru uvećanja ($\times2$, $\times3$, $\times4$). Boldovan je bolji prosek u paru; strelice označavaju poželjan smer metrike.}
+    \label{tab:multiscale_Set14}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lcccccc@{}}
+        \toprule
+        Faktor & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+        \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+         & namenski & multi & namenski & multi & namenski & multi \\
+        \midrule
+        $\times2$ & 29,2787 & \textbf{29,2974} & 0,8701 & \textbf{0,8705} & 0,1128 & \textbf{0,1108} \\
+        $\times3$ & 25,6624 & \textbf{25,6888} & 0,7546 & \textbf{0,7559} & \textbf{0,2594} & 0,2601 \\
+        $\times4$ & 25,0095 & \textbf{25,1116} & 0,6979 & \textbf{0,7015} & 0,3592 & \textbf{0,3558} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

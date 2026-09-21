@@ -1,0 +1,35 @@
+Skup: DIV2K   faktori: x2, x3, x4
+Prosek namenskih (single-scale) naspram proseka multi-scale modela.
+
+Faktor      PSNR nam.   PSNR multi       dPSNR    SSIM nam.   SSIM multi       dSSIM   LPIPS nam.  LPIPS multi      dLPIPS
+--------------------------------------------------------------------------------------------------------------------------
+x2            33,2844      33,3090     +0,0246       0,9253       0,9255     +0,0003       0,1122       0,1095     -0,0027
+x3            29,5925      29,6660     +0,0735       0,8481       0,8497     +0,0016       0,2496       0,2501     +0,0004
+x4            27,7307      27,8560     +0,1254       0,7859       0,7893     +0,0035       0,3384       0,3364     -0,0020
+
+x2 pobede -> PSNR: multi bolji 17/22   SSIM: multi bolji 17/22   LPIPS: multi bolji 18/22
+x3 pobede -> PSNR: multi bolji 11/15   SSIM: multi bolji 10/15   LPIPS: multi bolji 9/15
+x4 pobede -> PSNR: multi bolji 11/15   SSIM: multi bolji 11/15   LPIPS: multi bolji 8/15
+
+LaTeX tabela (za kopiranje):
+\begin{table}[H]
+    \centering
+    \caption{Prosečan kvalitet namenskih (single-scale) i multi-scale modela iste konfiguracije na skupu DIV2K, po faktoru uvećanja ($\times2$, $\times3$, $\times4$). Boldovan je bolji prosek u paru; strelice označavaju poželjan smer metrike.}
+    \label{tab:multiscale_DIV2K}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lcccccc@{}}
+        \toprule
+        Faktor & \multicolumn{2}{c}{PSNR $\uparrow$} & \multicolumn{2}{c}{SSIM $\uparrow$} & \multicolumn{2}{c}{LPIPS $\downarrow$} \\
+        \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+         & namenski & multi & namenski & multi & namenski & multi \\
+        \midrule
+        $\times2$ & 33,2844 & \textbf{33,3090} & 0,9253 & \textbf{0,9255} & 0,1122 & \textbf{0,1095} \\
+        $\times3$ & 29,5925 & \textbf{29,6660} & 0,8481 & \textbf{0,8497} & \textbf{0,2496} & 0,2501 \\
+        $\times4$ & 27,7307 & \textbf{27,8560} & 0,7859 & \textbf{0,7893} & 0,3384 & \textbf{0,3364} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

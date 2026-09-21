@@ -62,7 +62,8 @@ def combine_filenames(lr_dir: Path, hr_dir: Path):
     return [(a, b) for a, b in zip(input_files, target_files)]
 
 
-def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, jpeg_degradation=False):
+def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, jpeg_degradation=False,
+                       jpeg_quality=None):
     if upscale_factor not in [1, 2, 3, 4]:
         raise Exception(f'Upscale Factor {upscale_factor} unsupported in dataset')
 
@@ -82,7 +83,7 @@ def get_div2k_test_set(upscale_factor: Literal[2, 3, 4], preload, normalize, jpe
 
     print(f"Using test set: DIV2K {upscale_factor}x")
     return ImageDatasetTest(filenames=combine_filenames(lr_dir, hr_dir), upscale_factor=upscale_factor, preload=preload,
-                            normalize=normalize, jpeg_degradation=jpeg_degradation)
+                            normalize=normalize, jpeg_degradation=jpeg_degradation, jpeg_quality=jpeg_quality)
 
 
 # test/validation set that contains 2x,3x,4x LR
@@ -117,7 +118,7 @@ def get_div2k_test_set_multi(preload, normalize, jpeg_degradation=False):
                                       jpeg_degradation=jpeg_degradation)
 
 
-def get_hugginface_test_set(name, upscale_factor, preload, normalize, jpeg_degradation=False):
+def get_hugginface_test_set(name, upscale_factor, preload, normalize, jpeg_degradation=False, jpeg_quality=None):
     if upscale_factor not in [2, 3, 4]:
         raise Exception(f'Upscale Factor {upscale_factor} unsupported in dataset')
 
@@ -137,20 +138,20 @@ def get_hugginface_test_set(name, upscale_factor, preload, normalize, jpeg_degra
 
     print(f"Using test set {name} {upscale_factor}x")
     return ImageDatasetTest(filenames=combine_filenames(lr_dir, hr_dir), upscale_factor=upscale_factor, preload=preload,
-                            normalize=normalize, jpeg_degradation=jpeg_degradation)
+                            normalize=normalize, jpeg_degradation=jpeg_degradation, jpeg_quality=jpeg_quality)
 
 
 # glavna funkcija za uzimanje test seta
 def get_test_set(name: Literal["DIV2K", "Set5", "Set14", "BSD100", "Urban100"],
-                 upscale_factor: Literal[2, 3, 4], preload, normalize=True, jpeg_degradation=False):
+                 upscale_factor: Literal[2, 3, 4], preload, normalize=True, jpeg_degradation=False, jpeg_quality=None):
     if name.upper() == "DIV2K":
-        return get_div2k_test_set(upscale_factor, preload, normalize, jpeg_degradation)
+        return get_div2k_test_set(upscale_factor, preload, normalize, jpeg_degradation, jpeg_quality)
     if name.upper() == "SET5":
-        return get_hugginface_test_set("Set5", upscale_factor, preload, normalize, jpeg_degradation)
+        return get_hugginface_test_set("Set5", upscale_factor, preload, normalize, jpeg_degradation, jpeg_quality)
     if name.upper() == "SET14":
-        return get_hugginface_test_set("Set14", upscale_factor, preload, normalize, jpeg_degradation)
+        return get_hugginface_test_set("Set14", upscale_factor, preload, normalize, jpeg_degradation, jpeg_quality)
     if name.upper() == "BSD100":
-        return get_hugginface_test_set("BSD100", upscale_factor, preload, normalize, jpeg_degradation)
+        return get_hugginface_test_set("BSD100", upscale_factor, preload, normalize, jpeg_degradation, jpeg_quality)
     if name.upper() == "URBAN100":
-        return get_hugginface_test_set("Urban100", upscale_factor, preload, normalize, jpeg_degradation)
+        return get_hugginface_test_set("Urban100", upscale_factor, preload, normalize, jpeg_degradation, jpeg_quality)
     raise ValueError(f"Test set {name} is not available. Available test sets: DIV2K, Set5, Set14, BSD100, Urban100")

@@ -175,6 +175,11 @@ def to_float(x):
         return None
 
 
+def zf(value, spec) -> str:
+    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
+    return format(value, spec).replace(".", ",")
+
+
 def keep(name, exclude, archs, include):
     if not name:
         return False
@@ -253,7 +258,8 @@ def plot(runtypes, group_labels, values, title, common_n, unit, legend_loc, dpi)
     plt.rcParams.update({"font.size": 11, "axes.grid": True,
                          "grid.alpha": 0.25, "figure.dpi": dpi})
     is_fps = unit == "fps"
-    fmt = "{: .1f}".format if is_fps else "{: .2f}".format
+    bar_spec = " .1f" if is_fps else " .2f"
+    fmt = lambda v: zf(v, bar_spec)
     xlabel = "FPS - više je bolje" if is_fps else "Vreme (ms) - niže je bolje"
 
     n_rt = len(runtypes)
@@ -362,7 +368,7 @@ def run_config(cfg):
     print(f"Backend-ovi: {', '.join(label_for(rt) for rt in runtypes)}")
     print(f"Zajednickih modela: {len(common)}")
     for g in group_labels:
-        vals = "  ".join(f"{label_for(rt)}={values[g][rt]:.2f}{unit}" for rt in runtypes)
+        vals = "  ".join(f"{label_for(rt)}={zf(values[g][rt], '.2f')}{unit}" for rt in runtypes)
         print(f"  {g.replace(chr(10), ' '):<16} (n={group_n[g]:>2})  {vals}")
     print(f"Slika:  {out_path}")
 

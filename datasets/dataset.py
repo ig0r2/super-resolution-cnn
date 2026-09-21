@@ -79,13 +79,15 @@ class TrainCollateFn:
 # normalize = True - pretvara slike u float [0-1]
 # normalize = False - ostavlja slike kao unit8 [0-255]
 class ImageDatasetTest(data.Dataset):
-    def __init__(self, filenames, upscale_factor, preload=False, normalize=True, jpeg_degradation=False):
+    def __init__(self, filenames, upscale_factor, preload=False, normalize=True, jpeg_degradation=False,
+                 jpeg_quality=None):
         super().__init__()
         self.filenames = filenames
         self.preload = preload
         self.upscale_factor = upscale_factor
         self.normalize = normalize
         self.jpeg_degradation = jpeg_degradation
+        self.jpeg_quality = jpeg_quality  # fixed quality; None -> per-index deterministic quality
         # preload
         if preload:
             self.hr_images = []
@@ -106,9 +108,10 @@ class ImageDatasetTest(data.Dataset):
         target_w = hr.shape[2] - hr.shape[2] % self.upscale_factor
         hr = crop_to_match(hr, target_h, target_w)
 
-        # 100 images, quality 20-100
+        # 100 images, quality 20-100 (or a fixed quality if jpeg_quality is set)
         if self.jpeg_degradation:
-            lr = apply_jpeg_compression(lr, jpeg_quality_for_index(index))
+            quality = self.jpeg_quality if self.jpeg_quality is not None else jpeg_quality_for_index(index)
+            lr = apply_jpeg_compression(lr, quality)
 
         return lr, hr
 

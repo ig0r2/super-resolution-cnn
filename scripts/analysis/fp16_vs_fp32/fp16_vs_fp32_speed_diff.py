@@ -91,6 +91,11 @@ def to_float(x):
         return None
 
 
+def zf(value, spec) -> str:
+    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
+    return format(value, spec).replace(".", ",")
+
+
 def keep(name, exclude, archs, include):
     if not name:
         return False
@@ -221,7 +226,8 @@ def report(summary, fp16_path, fp32_path, n_common):
     print(header)
     print("-" * len(header))
     for res, n, mn, mean, med, mx, faster_n, best_model, worst_model in summary:
-        print(f"{res:<8} {n:>4} {mn:>8.2f} {mean:>8.2f} {med:>10.2f} {mx:>8.2f} "
+        print(f"{res:<8} {n:>4} {zf(mn, '>8.2f')} {zf(mean, '>8.2f')} "
+              f"{zf(med, '>10.2f')} {zf(mx, '>8.2f')} "
               f"{faster_n:>10}   {best_model} / {worst_model}")
 
 

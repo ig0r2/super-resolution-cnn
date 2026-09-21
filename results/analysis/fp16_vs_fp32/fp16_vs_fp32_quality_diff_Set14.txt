@@ -7,3 +7,17 @@ Metrika     N       min|d|    prosek|d|  medijana|d|       max|d|     prosek d  
 SSIM       95     0.000000     0.000011     0.000000     0.000100    -0.000011   SR_EDSR_2x_1_32
 PSNR       95     0.000000     0.000339     0.000300     0.002000    -0.000297   SR_EDSR_2x_4_256
 LPIPS      95     0.000000     0.000023     0.000000     0.000100    -0.000006   SR_FastEDSR_2_8
+
+==================================================
+New session started
+==================================================
+
+FP32 izvor: results_2x_Set14.csv
+FP16 izvor: results_2x_Set14_half.csv
+Uparenih modela: 94  (razlika = FP16 - FP32)
+
+Metrika     N       min|d|    prosek|d|  medijana|d|       max|d|     prosek d   najveca razlika
+------------------------------------------------------------------------------------------------
+SSIM       94     0,000000     0,000011     0,000000     0,000100    -0,000011   SR_EDSR_2x_1_32
+PSNR       94     0,000000     0,000338     0,000300     0,002000    -0,000296   SR_EDSR_2x_4_256
+LPIPS      94     0,000000     0,000023     0,000000     0,000100    -0,000006   SR_FastEDSR_2_8
