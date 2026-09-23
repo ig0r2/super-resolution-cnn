@@ -8,15 +8,14 @@ from utils.path import get_project_root, get_checkpoints_path
 from videoplayer.backends import NCNNBackend, ONNXBackend, PT2Backend, TRTBackend
 from videoplayer.player import VideoPlayer
 
-BackendType = Literal["ncnn", "onnx", "trt", "pt2"]
-ProviderType = Literal["cuda", "tensorrt", "directml", "openvino", "cpu"]
+Runtype = Literal["tensorrt", "tensorrt-pt2", "tensorrt-nvdec", "tensorrt-nvdec-gl", "opengl", "ncnn-vulkan",
+"onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino", "onnxruntime-directml", "onnxruntime-cpu"]
 
 MODEL = "multiscale/SR_FastEDSR_4_128"
 VIDEO_PATH = get_project_root("videoinput/ldv-001-480p.mp4")
 CANDIDATE_SCALES = (2, 3, 4)
 
-BACKEND: BackendType = "trt"
-PROVIDER: ProviderType = "directml"  # onnx only
+BACKEND: Runtype = "onnxruntime-directml"
 
 
 ################################################
@@ -35,16 +34,17 @@ tag = f"{checkpoint_name}_{frame_size[0]}x{frame_size[1]}_{scale}x"
 checkpoint_path = get_checkpoints_path(f"{MODEL}.pth")
 
 try:
-    if BACKEND == "ncnn":
+    if BACKEND == "ncnn-vulkan":
         log("Preparing ncnn-Vulkan backend (conversion on first run can take a while) ...")
         backend = NCNNBackend(checkpoint_path, tag, frame_size, scale)
-    elif BACKEND == "onnx":
-        log(f"Preparing onnxruntime backend (provider={PROVIDER}; export on first run can take a while) ...")
-        backend = ONNXBackend(checkpoint_path, tag, frame_size, scale, provider=PROVIDER)
-    elif BACKEND == "trt":
+    elif BACKEND.startswith("onnxruntime-"):
+        provider = BACKEND.split("-", 1)[1]
+        log(f"Preparing onnxruntime backend (provider={provider}; export on first run can take a while) ...")
+        backend = ONNXBackend(checkpoint_path, tag, frame_size, scale, provider=provider)
+    elif BACKEND == "tensorrt":
         log("Setting up TensorRT backend")
         backend = TRTBackend(checkpoint_path, tag, frame_size, scale)
-    elif BACKEND == "pt2":
+    elif BACKEND == "tensorrt-pt2":
         log("Setting up torch_tensorrt (.pt2) backend")
         backend = PT2Backend(checkpoint_path, tag, frame_size, scale)
     else:

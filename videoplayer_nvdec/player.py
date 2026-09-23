@@ -228,6 +228,8 @@ class NvdecVideoPlayer:
         loop_times = deque(maxlen=30)    # wall-clock timestamps of shown frames -> achieved FPS
         last_frame_id = -1
         last_output = None
+        prev_paused = self.paused
+        needs_redraw = False
         running = True
 
         while running:
@@ -252,6 +254,19 @@ class NvdecVideoPlayer:
                 # not cheap re-displays of the same cached frame.
                 if not self.paused:
                     loop_times.append(time.perf_counter())
+                needs_redraw = True
+
+            # A pause toggle changes the overlay (PAUSED text) so force a one-off redraw
+            if self.paused != prev_paused:
+                needs_redraw = True
+                prev_paused = self.paused
+
+            # Idle: same frame, same state. Just keep the window responsive instead of copying,
+            # re-drawing overlays and re-showing the identical image hundreds of times a second.
+            if not needs_redraw:
+                key = cv2.waitKeyEx(1)
+                running = self._handle_key(key, index) and not self._window_closed()
+                continue
 
             display = last_output.copy()
 
@@ -290,6 +305,7 @@ class NvdecVideoPlayer:
 
             cv2.imshow(self.window_name, display)
 
+            needs_redraw = False
             key = cv2.waitKeyEx(1)
             running = self._handle_key(key, index) and not self._window_closed()
 

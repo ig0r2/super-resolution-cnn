@@ -35,6 +35,7 @@ def format_time(seconds: float) -> str:
     total = int(seconds)
     return f"{total // 60}:{total % 60:02d}"
 
+
 # cv2.waitKeyEx extended key codes (Windows)
 KEY_ESC = 27
 KEY_SPACE = 32
@@ -248,6 +249,8 @@ class VideoPlayer:
         loop_times = deque(maxlen=30)  # wall-clock timestamps of new frames -> achieved FPS
         last_frame_id = -1
         last_output = None
+        prev_paused = self.paused
+        needs_redraw = False
         running = True
 
         while running:
@@ -276,6 +279,19 @@ class VideoPlayer:
 
                 if not self.paused:
                     loop_times.append(time.perf_counter())
+                needs_redraw = True
+
+            # A pause toggle changes the overlay (PAUSED text) force a one-off redraw
+            if self.paused != prev_paused:
+                needs_redraw = True
+                prev_paused = self.paused
+
+            # Idle: same frame, same state. Just keep the window responsive instead of copying,
+            # re-drawing overlays and re-showing the identical image hundreds of times a second.
+            if not needs_redraw:
+                key = cv2.waitKeyEx(1)
+                running = self._handle_key(key, pos_frames) and not self._window_closed()
+                continue
 
             display = last_output.copy()
 
@@ -316,6 +332,7 @@ class VideoPlayer:
             if self.show_original:
                 cv2.imshow(self.original_window_name, frame)
 
+            needs_redraw = False
             key = cv2.waitKeyEx(1)
             running = self._handle_key(key, pos_frames) and not self._window_closed()
 
