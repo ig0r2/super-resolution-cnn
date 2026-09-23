@@ -5,9 +5,35 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import cv2
+import numpy as np
 
 from .audio import AudioTrack
 from .scaling import choose_auto_scale, get_screen_size
+
+
+def letterbox_to_screen(display, screen_size):
+    """Fit ``display`` (H,W,3) inside ``screen_size`` (h, w) preserving its aspect ratio, centered
+    on a black canvas. Mirrors the GL players' letterboxing so fullscreen keeps the video ratio
+    instead of stretching to fill the screen."""
+    sh, sw = screen_size
+    h, w = display.shape[:2]
+    scale = min(sw / w, sh / h)
+    nw, nh = max(1, round(w * scale)), max(1, round(h * scale))
+    if (nw, nh) != (w, h):
+        interp = cv2.INTER_CUBIC if scale > 1 else cv2.INTER_AREA
+        display = cv2.resize(display, (nw, nh), interpolation=interp)
+    if (nw, nh) == (sw, sh):
+        return display
+    canvas = np.zeros((sh, sw, 3), dtype=display.dtype)
+    y0, x0 = (sh - nh) // 2, (sw - nw) // 2
+    canvas[y0:y0 + nh, x0:x0 + nw] = display
+    return canvas
+
+
+def format_time(seconds: float) -> str:
+    """Seconds -> M:SS (e.g. 153 -> '2:33')."""
+    total = int(seconds)
+    return f"{total // 60}:{total % 60:02d}"
 
 # cv2.waitKeyEx extended key codes (Windows)
 KEY_ESC = 27
@@ -123,6 +149,7 @@ class VideoPlayer:
         self.upscale_fn = None
         self.paused = False
         self.fullscreen = start_fullscreen
+        self.screen_size: Optional[Tuple[int, int]] = None
         self._reader: Optional[_FrameReader] = None
         self.audio = AudioTrack(self.video_path) if enable_audio else None
 
@@ -138,6 +165,7 @@ class VideoPlayer:
         """Pick the model scale for this video on the current screen, set the display target_size,
         and return the chosen integer scale (which drives the SR model / engine)."""
         screen_size = get_screen_size()
+        self.screen_size = screen_size
         decision = choose_auto_scale(self.frame_size, screen_size, candidate_scales)
         print(f"[videoplayer] Frame {self.frame_size} | Screen {screen_size} | "
               f"Model scale {decision.model_scale}x -> {decision.model_output_size} | "
@@ -254,6 +282,13 @@ class VideoPlayer:
             if self.paused:
                 loop_times.clear()  # avoid a stale gap spanning the pause on resume
 
+            # Letterbox first so the overlays below are drawn onto the final screen-sized canvas;
+            # anchored to its corners, they land on the black bars instead of over the video.
+            if self.fullscreen:
+                if self.screen_size is None:
+                    self.screen_size = get_screen_size()
+                display = letterbox_to_screen(display, self.screen_size)
+
             # compute FPS = model + display-resize cost only (decode is on the reader thread, and
             # GUI/pacing are excluded) -> an upper bound. achieved FPS = real rate of new frames
             # reaching the screen -> includes decode wait, GUI, and the real-time pacing cap.
@@ -269,7 +304,7 @@ class VideoPlayer:
 
             pos_s = pos_frames / self.fps
             dur_s = self.frame_count / self.fps
-            time_text = f"{int(pos_s):d}s / {int(dur_s):d}s"
+            time_text = f"{format_time(pos_s)} / {format_time(dur_s)}"
             font, font_scale, thickness = cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2
             (text_w, text_h), _ = cv2.getTextSize(time_text, font, font_scale, thickness)
             margin = 20

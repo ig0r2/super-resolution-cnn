@@ -15,6 +15,7 @@ import glfw
 import torch
 import torch.nn.functional as F
 
+from videoplayer.player import format_time
 from .gl_display import GLDisplay
 from .player import NvdecVideoPlayer, _DecodeReader
 
@@ -122,12 +123,12 @@ class NvdecGLVideoPlayer(NvdecVideoPlayer):
             pos_s = index / self.fps
             dur_s = self.frame_count / self.fps
             status = "PAUSED" if self.paused else f"{achieved_fps:.1f} FPS (real) | {compute_fps:.1f} FPS (compute)"
-            self._display.set_title(f"{self.window_name}  -  {status}  -  {int(pos_s)}s / {int(dur_s)}s")
+            self._display.set_title(f"{self.window_name}  -  {status}  -  {format_time(pos_s)} / {format_time(dur_s)}")
 
             now = time.perf_counter()
             if not self.paused and now - last_print >= 1.0:
                 print(f"[videoplayer_nvdec] {achieved_fps:5.1f} FPS (real) | {compute_fps:5.1f} FPS (compute) "
-                      f"| {int(pos_s)}s / {int(dur_s)}s")
+                      f"| {format_time(pos_s)} / {format_time(dur_s)}")
                 last_print = now
 
         self._reader.stop()

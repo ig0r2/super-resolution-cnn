@@ -12,6 +12,7 @@ from collections import deque
 
 import glfw
 
+from videoplayer.player import format_time
 from videoplayer_nvdec.player import NvdecVideoPlayer, _DecodeReader
 from .gl_runtime import GLUpscaler
 
@@ -109,12 +110,12 @@ class GLVideoPlayer(NvdecVideoPlayer):
             status = "PAUSED" if self.paused else f"{achieved_fps:.1f} FPS (real) | {compute_fps:.1f} FPS (compute)"
 
             if have_frame:
-                self.engine.present(f"{self.window_name}  -  {status}  -  {int(pos_s)}s / {int(dur_s)}s")
+                self.engine.present(f"{self.window_name}  -  {status}  -  {format_time(pos_s)} / {format_time(dur_s)}")
 
             now = time.perf_counter()
             if not self.paused and now - last_print >= 1.0:
                 print(f"[videoplayer_gl] {achieved_fps:5.1f} FPS (real) | {compute_fps:5.1f} FPS (compute) "
-                      f"| {int(pos_s)}s / {int(dur_s)}s")
+                      f"| {format_time(pos_s)} / {format_time(dur_s)}")
                 last_print = now
 
         self._reader.stop()
