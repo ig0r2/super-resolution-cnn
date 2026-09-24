@@ -55,6 +55,8 @@ CONFIG_DEFAULTS = {
     "archs": None,  # zadrzi samo ove arhitekture; None -> sve
     "show_n": False,  # True -> prikazi broj modela n; False -> bez n
     "exclude": ["GAN", "ESRGAN", "jpeg", "FastEDSR"],  # niske koje se izbacuju
+    "include_multiscale": True,  # True -> ulaze i modeli bez \d+x tokena u imenu
+    # (multiscale), pored onih sa cfg.scale
     "bins": [  # (labela, donja granica FPS, gornja granica ili None)
         ("<30", 0, 30),
         ("30–45", 30, 45),
@@ -129,7 +131,8 @@ def display_name(name: str) -> str:
     return f"{arch} {'/'.join(rest)}" if rest else arch
 
 
-def load_rows(path, metrics, bin_col, exclude, models, archs):
+def load_rows(path, metrics, bin_col, exclude, models, archs, scale,
+              include_multiscale):
     """Vrati listu {name, arch, fps, <metrike>} za SR_ modele sa svim vrednostima."""
     models = set(models) if models else None
     archs = set(archs) if archs else None
@@ -152,6 +155,11 @@ def load_rows(path, metrics, bin_col, exclude, models, archs):
                     continue
                 if archs and arch_of(name) not in archs:
                     continue
+                parts = name.split("_")
+                if scale not in parts:
+                    is_multiscale = not any(re.fullmatch(r"\d+x", t) for t in parts)
+                    if not (include_multiscale and is_multiscale):
+                        continue
             fps = to_float(r.get(bin_col))
             if not fps:
                 continue
@@ -204,7 +212,8 @@ def run_config(cfg):
         sys.exit(f"CSV ne postoji: {results_path}")
 
     rows = load_rows(results_path, cfg.metrics, cfg.bin_col, cfg.exclude,
-                     cfg.models, cfg.archs)
+                     cfg.models, cfg.archs,
+                     cfg.scale, cfg.include_multiscale)
     if not rows:
         sys.exit(f"Nema modela u {results_path.name} sa vrednoscu '{cfg.bin_col}' "
                  f"posle filtera.")

@@ -40,22 +40,23 @@ BASELINE_LABELS = {
 # Podrazumevane vrednosti za svako polje konfiguracije. Svaka stavka u CONFIGS
 # prepisuje samo ono sto joj treba; ostalo se uzima odavde.
 CONFIG_DEFAULTS = {
-    "name": "standard",             # koristi se za ime .tex fajla
-    "scale": "2x",                  # uvecanje (2x/3x/4x) — ulazi u ime CSV-a
-    "dataset": "DIV2K",             # skup — ulazi u ime CSV-a
-    "results": None,                # None -> results_{scale}_{dataset}_half.csv
-    "models": [],                   # eksplicitna lista model_name (tim redom);
-                                    # [] -> auto: najbolji po klasi iz "classes"
+    "name": "standard",  # koristi se za ime .tex fajla
+    "scale": "2x",  # uvecanje (2x/3x/4x) — ulazi u ime CSV-a
+    "dataset": "DIV2K",  # skup — ulazi u ime CSV-a
+    "results": None,  # None -> results_{scale}_{dataset}_half.csv
+    "models": [],  # eksplicitna lista model_name (tim redom);
+    # [] -> auto: najbolji po klasi iz "classes"
     "classes": ["SRCNN", "VDSR", "EDSR", "IMDN", "RFDN"],  # klase, tim redom
+    "include_multiscale": True,  # True -> u izbor ulaze i multiscale modeli
     "baselines": ["nearest", "bilinear", "bicubic", "lanczos"],  # bazne interpolacije na vrhu ([] za bez)
-    "primary": "PSNR",              # metrika po kojoj se bira najbolji u klasi
+    "primary": "PSNR",  # metrika po kojoj se bira najbolji u klasi
     "metrics": ["PSNR", "SSIM", "LPIPS"],  # kolone metrika (redom)
-    "decimals": None,               # decimale metrika: None -> podrazumevano (4);
-                                    # int za sve; ili dict {"PSNR": 2, ...}
-    "param_decimals": 3,            # decimale za kolonu parametara (10^6)
-    "caption": None,                # None -> automatski
-    "label": None,                  # None -> tab:results_{scale}_{dataset}
-    "out": None,                    # None -> results/analysis/models/results_table_<name>.tex
+    "decimals": None,  # decimale metrika: None -> podrazumevano (4);
+    # int za sve; ili dict {"PSNR": 2, ...}
+    "param_decimals": 3,  # decimale za kolonu parametara (10^6)
+    "caption": None,  # None -> automatski
+    "label": None,  # None -> tab:results_{scale}_{dataset}
+    "out": None,  # None -> results/analysis/models/results_table_<name>.tex
 }
 
 ##############################################
@@ -70,6 +71,16 @@ CONFIGS = [
     {
         "name": "standard_2x_Set14",
         "scale": "2x",
+        "dataset": "Set14",
+    },
+    {
+        "name": "standard_4x_DIV2K",
+        "scale": "4x",
+        "dataset": "DIV2K",
+    },
+    {
+        "name": "standard_4x_Set14",
+        "scale": "4x",
         "dataset": "Set14",
     },
 ]
@@ -155,8 +166,12 @@ def best_per_class(rows, cfg):
         if any(sub in name for sub in ("GAN", "ESRGAN", "jpeg")):
             continue
         parts = name.split("_")
-        if parts[0] != "SR" or scale_tok not in parts:
+        if parts[0] != "SR":
             continue
+        if scale_tok not in parts:
+            is_multiscale = not any(re.fullmatch(r"\d+x", p) for p in parts)
+            if not (cfg.include_multiscale and is_multiscale):
+                continue
         arch = arch_of(name)
         if arch not in cfg.classes:
             continue
@@ -205,8 +220,9 @@ def run_config(cfg):
     else:
         models = best_per_class(rows, cfg)
         if not models:
+            extra = " (ni multiscale)" if cfg.include_multiscale else ""
             sys.exit(f"Nijedna klasa ({', '.join(cfg.classes)}) nema model sa "
-                     f"'{cfg.scale}' tokenom u {results_path.name}.")
+                     f"'{cfg.scale}' tokenom{extra} u {results_path.name}.")
 
     baselines = [(BASELINE_LABELS.get(b, b.capitalize()), rows[b])
                  for b in cfg.baselines if b in rows]

@@ -1,0 +1,24 @@
+\begin{table}[H]
+    \centering
+    \caption{Kvalitet izdvojenih standardnih arhitektura na skupu Set14 za uvećanje $\times4$. Broj parametara izražen je u milionima i zaokružen na tri decimale. Strelice označavaju poželjan smer promene metrike.}
+    \label{tab:results_4x_Set14}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}lrrrr@{}}
+        \toprule
+        Model & \shortstack{Parametri\\($10^6$)} & \shortstack{PSNR $\uparrow$\\(dB)} & SSIM $\uparrow$ & LPIPS $\downarrow$ \\
+        \midrule
+        Nearest & --- & 22,8907 & 0,6102 & 0,4063 \\
+        Bilinear & --- & 23,6129 & 0,6347 & 0,4503 \\
+        Bicubic & --- & 24,1174 & 0,6587 & 0,4438 \\
+        Lanczos & --- & 24,3157 & 0,6664 & 0,4442 \\
+        \midrule
+        EDSR 4/52 & 0,930 & 25,3818 & 0,7110 & 0,3299 \\
+        IMDN 2/96 & 0,647 & 25,4302 & 0,7129 & 0,3250 \\
+        RFDN 4/256 & 10,981 & \textbf{25,8362} & \textbf{0,7278} & \textbf{0,3088} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

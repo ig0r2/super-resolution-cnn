@@ -54,8 +54,10 @@ CONFIG_DEFAULTS = {
     # (posle exclude/archs filtera)
     "archs": None,  # zadrzi samo ove arhitekture (npr. ["RFDN"]);
     # None -> sve
-    "show_n": False,                 # True -> prikazi broj modela n; False -> bez n
+    "show_n": False,  # True -> prikazi broj modela n; False -> bez n
     "exclude": ["GAN", "ESRGAN", "jpeg", "FastEDSR"],  # niske koje se izbacuju
+    "include_multiscale": True,  # True -> ulaze i modeli bez \d+x tokena u imenu
+    # (multiscale), pored onih sa cfg.scale
     "bins": [  # (labela, donja granica, gornja granica ili None)
         ("<50K", 0, 50_000),
         ("50K–200K", 50_000, 200_000),
@@ -91,6 +93,17 @@ CONFIGS = [
     {
         "name": "DIV2K_2x_standard",
         "scale": "2x",
+        "dataset": "DIV2K",
+    },
+    {
+        "name": "DIV2K_4x_all",
+        "scale": "4x",
+        "dataset": "DIV2K",
+        "exclude": ["GAN", "ESRGAN", "jpeg"]
+    },
+    {
+        "name": "DIV2K_4x_standard",
+        "scale": "4x",
         "dataset": "DIV2K",
     },
 ]
@@ -137,7 +150,8 @@ def display_name(name: str) -> str:
     return f"{arch} {'/'.join(rest)}" if rest else arch
 
 
-def load_rows(path, metrics, exclude, models, archs):
+def load_rows(path, metrics, exclude, models, archs, scale,
+              include_multiscale):
     """Vrati listu {name, arch, params, <metrike>} za SR_ modele sa svim metrikama.
 
     Ako je `models` neprazna lista -> zadrzavaju se tacno ti modeli (exclude/archs
@@ -163,6 +177,11 @@ def load_rows(path, metrics, exclude, models, archs):
                     continue
                 if archs and arch_of(name) not in archs:
                     continue
+                parts = name.split("_")
+                if scale not in parts:
+                    is_multiscale = not any(re.fullmatch(r"\d+x", t) for t in parts)
+                    if not (include_multiscale and is_multiscale):
+                        continue
             params = to_float(r.get("params"))
             if not params:
                 continue
@@ -214,7 +233,8 @@ def run_config(cfg):
     if not results_path.exists():
         sys.exit(f"CSV ne postoji: {results_path}")
 
-    rows = load_rows(results_path, cfg.metrics, cfg.exclude, cfg.models, cfg.archs)
+    rows = load_rows(results_path, cfg.metrics, cfg.exclude, cfg.models, cfg.archs,
+                     cfg.scale, cfg.include_multiscale)
     if not rows:
         sys.exit(f"Nema modela u {results_path.name} posle filtera.")
     if cfg.models:
