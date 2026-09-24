@@ -3,13 +3,13 @@ from pathlib import Path
 
 import torch
 
-from utils.video.export_trt_engine import get_raw_trt_engine, TRTRawRunner
-from videoplayer import cache_paths
+from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
+from .. import cache_paths
 from .wrapper import VideoWrapperNVDEC, export_onnx_chw
 
 
 def _log(msg: str):
-    print(f"[videoplayer_nvdec] {msg}")
+    print(f"[videoplayer] {msg}")
 
 
 def _load_model(checkpoint_path, upscale_factor):

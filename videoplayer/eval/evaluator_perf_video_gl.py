@@ -1,5 +1,5 @@
 """
-Speed evaluation for the pure-OpenGL SR pipeline (videoplayer_gl), runtype "opengl".
+Speed evaluation for the pure-OpenGL SR pipeline (players/gl.py), runtype "opengl".
 
 Same four-stage breakdown and reporting as EvaluatorPerfVideoNVDEC (one 'total' loop that times
 each part in-line, average milliseconds per frame), so its CSV row lines up column-for-column with
@@ -25,29 +25,20 @@ blank row, as it does for a failed TRT engine build).
 
 import gc
 import time
-from pathlib import Path
 
 import torch
 from OpenGL import GL
 
 from videoplayer.scaling import choose_auto_scale
-from .build import build_engine
-from videoplayer_nvdec.decoder import NvDecoder
-
-# Reference screen for the display downscale target, so "display" is monitor-independent (matches
-# EvaluatorPerfVideoNVDEC).
-_REF_SCREEN = (1080, 1920)
+from videoplayer.backends.gl_build import build_engine
+from videoplayer.decode.decoder import NvDecoder
+from ._base import _BaseVideoPerfEvaluator
 
 
-class EvaluatorPerfVideoGL:
+class EvaluatorPerfVideoGL(_BaseVideoPerfEvaluator):
     def __init__(self, checkpoint_path, name, video_path, upscale_factor=2,
                  warmup_runs=20, iterations=200, chunk_size=8):
-        self.checkpoint_path = Path(checkpoint_path)
-        self.name = name
-        self.upscale_factor = upscale_factor
-        self.video_path = Path(video_path)
-        self.warmup_runs = warmup_runs
-        self.iterations = iterations
+        super().__init__(checkpoint_path, name, video_path, upscale_factor, warmup_runs, iterations)
         self.chunk_size = chunk_size
 
     def evaluate(self):
@@ -59,7 +50,7 @@ class EvaluatorPerfVideoGL:
         print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.upscale_factor}x")
 
         # Display target the player would show on a 1080p screen -> the hidden window / draw size.
-        target_hw = choose_auto_scale((h, w), _REF_SCREEN, (self.upscale_factor,)).target_size
+        target_hw = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,)).target_size
 
         engine, meta = build_engine(self.checkpoint_path, self.upscale_factor, h, w,
                                     win_w=target_hw[1], win_h=target_hw[0],
@@ -99,22 +90,6 @@ class EvaluatorPerfVideoGL:
             del decoder
             gc.collect()
             torch.cuda.empty_cache()
-
-    def _summarize(self, totals):
-        decode = totals["decode"] / self.iterations * 1000
-        sr = totals["sr"] / self.iterations * 1000
-        display = totals["display"] / self.iterations * 1000
-        total = decode + sr + display
-
-        print("-" * 30)
-        print(f"decode  : {decode:8.2f} ms")
-        print(f"sr      : {sr:8.2f} ms")
-        print(f"display : {display:8.2f} ms")
-        print(f"total   : {total:8.2f} ms")
-        print("-" * 30)
-
-        return {"decode": f"{decode:.2f}", "sr": f"{sr:.2f}",
-                "display": f"{display:.2f}", "total": f"{total:.2f}"}
 
     @staticmethod
     def _sync(gl: bool):

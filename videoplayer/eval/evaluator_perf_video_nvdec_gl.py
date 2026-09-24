@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from .evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
-from .gl_display import GLDisplay
+from videoplayer.backends.gl_display import GLDisplay
 
 
 class EvaluatorPerfVideoNVDECGL(EvaluatorPerfVideoNVDEC):

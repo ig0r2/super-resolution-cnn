@@ -2,11 +2,11 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from utils.path import get_project_root, get_checkpoints_path
-from videoplayer.backends import NCNNBackend, ONNXBackend, PT2Backend, TRTBackend
-from videoplayer.player import VideoPlayer
+from videoplayer.backends.cv2_backends import NCNNBackend, ONNXBackend, PT2Backend, TRTBackend
+from videoplayer.players.cv2_player import VideoPlayerCV2
 
 Runtype = Literal["tensorrt", "tensorrt-pt2", "tensorrt-nvdec", "tensorrt-nvdec-gl", "opengl", "ncnn-vulkan",
 "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino", "onnxruntime-directml", "onnxruntime-cpu"]
@@ -24,7 +24,7 @@ def log(msg):
     print(f"[videoplayer] {msg}")
 
 
-player = VideoPlayer(VIDEO_PATH)
+player = VideoPlayerCV2(VIDEO_PATH)
 scale = player.configure_scale(CANDIDATE_SCALES)
 frame_size = player.size
 

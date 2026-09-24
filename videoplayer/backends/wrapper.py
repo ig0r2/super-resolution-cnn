@@ -5,7 +5,7 @@ import torch
 
 class VideoWrapperNVDEC(torch.nn.Module):
     """
-    NVDEC-decode counterpart of utils.video.wrapper.VideoWrapperCV2.
+    NVDEC-decode counterpart of backends.cv2_wrapper.VideoWrapperCV2.
 
     The NVDEC decoder already hands us an RGB, channels-first (3,H,W) tensor on the GPU, so
     unlike the OpenCV path there is no BGR<->RGB swap and no HWC<->CHW permutation to do here:
@@ -28,7 +28,7 @@ class VideoWrapperNVDEC(torch.nn.Module):
 def export_onnx_chw(model, onnx_path, input_hw):
     """Export the model to ONNX (FP16) with a static channels-first (3,H,W) GPU input.
 
-    Mirrors utils.video.export.export_onnx_uint8 but with a CHW dummy instead of the
+    Mirrors backends.export.export_onnx_uint8 but with a CHW dummy instead of the
     OpenCV (H,W,3) one, so the resulting TensorRT engine consumes NVDEC RGBP frames directly.
     """
     dtype = torch.float16

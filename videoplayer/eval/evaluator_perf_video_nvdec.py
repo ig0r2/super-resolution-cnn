@@ -1,23 +1,19 @@
 import gc
 import time
-from pathlib import Path
 
 import torch
 import torch.nn.functional as F
 
 from videoplayer.scaling import choose_auto_scale
-from .decoder import NvDecoder
-from .backend import TRTBackendNVDEC
-
-# Reference screen used to derive the display downscale target, so the "display" measurement is
-# deterministic and independent of whatever monitor the eval happens to run on.
-_REF_SCREEN = (1080, 1920)
+from videoplayer.decode.decoder import NvDecoder
+from videoplayer.backends.nvdec_backend import TRTBackendNVDEC
+from ._base import _BaseVideoPerfEvaluator
 
 
-class EvaluatorPerfVideoNVDEC:
+class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
     """
-    Speed evaluation for the NVDEC-decode SR pipeline (videoplayer_nvdec), the NVDEC counterpart
-    of videoplayer.evaluator_perf_video_cv2.EvaluatorPerfVideoCV2.
+    Speed evaluation for the NVDEC-decode SR pipeline (players/nvdec.py), the NVDEC counterpart
+    of eval/evaluator_perf_video_cv2.py's EvaluatorPerfVideoCV2.
 
     This decodes real frames on the GPU via NVDEC. A single 'total' loop of `iterations` runs the
     whole pipeline and times each part in-line (with a cuda sync per part, since the stages are
@@ -36,15 +32,6 @@ class EvaluatorPerfVideoNVDEC:
     Uses TRTBackendNVDEC, so it shares the exports/trt_nvdec engine cache with run_trt_nvdec.py.
     """
 
-    def __init__(self, checkpoint_path, name, video_path, upscale_factor=2,
-                 warmup_runs=20, iterations=200):
-        self.checkpoint_path = Path(checkpoint_path)
-        self.name = name
-        self.upscale_factor = upscale_factor
-        self.video_path = Path(video_path)
-        self.warmup_runs = warmup_runs
-        self.iterations = iterations
-
     def evaluate(self):
         torch.cuda.empty_cache()
 
@@ -54,7 +41,7 @@ class EvaluatorPerfVideoNVDEC:
         print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, decode target {self.upscale_factor}x")
 
         # Display downscale target (what the player would show on a 1080p screen).
-        decision = choose_auto_scale((h, w), _REF_SCREEN, (self.upscale_factor,))
+        decision = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,))
         target_hw = decision.target_size
 
         tag = f"{self.name}_{h}x{w}_{self.upscale_factor}x"
@@ -111,19 +98,3 @@ class EvaluatorPerfVideoNVDEC:
         x = F.interpolate(x, size=target_hw, mode="bicubic", align_corners=False)
         x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
         return x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy()
-
-    def _summarize(self, totals):
-        decode = totals["decode"] / self.iterations * 1000
-        sr = totals["sr"] / self.iterations * 1000
-        display = totals["display"] / self.iterations * 1000
-        total = decode + sr + display
-
-        print("-" * 30)
-        print(f"decode  : {decode:8.2f} ms")
-        print(f"sr      : {sr:8.2f} ms")
-        print(f"display : {display:8.2f} ms")
-        print(f"total   : {total:8.2f} ms")
-        print("-" * 30)
-
-        return {"decode": f"{decode:.2f}", "sr": f"{sr:.2f}",
-                "display": f"{display:.2f}", "total": f"{total:.2f}"}

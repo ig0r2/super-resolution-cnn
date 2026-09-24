@@ -4,7 +4,7 @@ Minimal OpenGL render-graph engine that executes the shader passes from shader_g
 Per frame:
   1. the NVDEC frame (a (3,H,W) uint8 RGB CUDA tensor) is copied device->device into an
      OpenGL input texture via CUDA<->GL interop (no host round-trip, same trick as
-     videoplayer_nvdec/gl_display.py);
+     backends/gl_display.py);
   2. each Pass renders into its own offscreen texture (RGBA16F for features, RGBA8 for the
      final HR frame) at the model's exact resolution;
   3. the final HR texture is drawn to the window, letterboxed, or read back for validation.

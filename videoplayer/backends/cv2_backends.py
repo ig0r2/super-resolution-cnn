@@ -3,11 +3,11 @@ import time
 import numpy as np
 import torch
 
-from utils.video.wrapper import VideoWrapperCV2
-from utils.video.export import export_trt, export_onnx_bare, export_onnx_uint8
-from utils.video.export_trt_engine import get_raw_trt_engine, TRTRawRunner
-from utils.video.export_ncnn import export_ncnn, NCNNRunner
-from videoplayer import cache_paths
+from .cv2_wrapper import VideoWrapperCV2
+from .export import export_trt, export_onnx_bare, export_onnx_uint8
+from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
+from .export_ncnn import export_ncnn, NCNNRunner
+from .. import cache_paths
 
 
 def _log(msg: str):

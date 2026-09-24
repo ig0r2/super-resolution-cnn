@@ -1,22 +1,18 @@
 import gc
 import time
-from pathlib import Path
 from typing import Literal, TypeAlias
 
 import cv2
 import torch
 
-from videoplayer.backends import TRTBackend, ONNXBackend, NCNNBackend, PT2Backend
+from videoplayer.backends.cv2_backends import TRTBackend, ONNXBackend, NCNNBackend, PT2Backend
 from videoplayer.scaling import choose_auto_scale
+from ._base import _BaseVideoPerfEvaluator
 
 Runtype: TypeAlias = Literal[
     "tensorrt", "tensorrt-pt2", "ncnn-vulkan",
     "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
     "onnxruntime-directml", "onnxruntime-cpu"]
-
-# Reference screen used to derive the display downscale target, so the "display" measurement is
-# deterministic and independent of whatever monitor the eval happens to run on.
-_REF_SCREEN = (1080, 1920)
 
 
 def _make_backend(runtype: Runtype, checkpoint_path, tag, input_size, upscale_factor):
@@ -34,11 +30,11 @@ def _make_backend(runtype: Runtype, checkpoint_path, tag, input_size, upscale_fa
     raise ValueError(f"Unknown runtype: {runtype}")
 
 
-class EvaluatorPerfVideoCV2:
+class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
     """
-    Speed evaluation for the OpenCV-decode SR pipeline (videoplayer/), supporting the tensorrt,
-    onnxruntime-* and ncnn-vulkan backends. The CPU-decode counterpart of
-    videoplayer_nvdec/evaluator_perf_video_nvdec.py's NVDEC evaluator.
+    Speed evaluation for the OpenCV-decode SR pipeline (players/cv2_player.py), supporting the
+    tensorrt, onnxruntime-* and ncnn-vulkan backends. The CPU-decode counterpart of
+    eval/evaluator_perf_video_nvdec.py's NVDEC evaluator.
 
     Real frames are decoded with cv2.VideoCapture (CPU decode + host->device upload happens
     inside the backend). All values are average milliseconds per frame:
@@ -51,13 +47,8 @@ class EvaluatorPerfVideoCV2:
 
     def __init__(self, checkpoint_path, name, video_path, runtype: Runtype, upscale_factor=2,
                  warmup_runs=20, iterations=200):
-        self.checkpoint_path = Path(checkpoint_path)
-        self.name = name
-        self.video_path = Path(video_path)
+        super().__init__(checkpoint_path, name, video_path, upscale_factor, warmup_runs, iterations)
         self.runtype: Runtype = runtype
-        self.upscale_factor = upscale_factor
-        self.warmup_runs = warmup_runs
-        self.iterations = iterations
 
     def evaluate(self):
         torch.cuda.empty_cache()
@@ -70,7 +61,7 @@ class EvaluatorPerfVideoCV2:
         n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.runtype}")
 
-        decision = choose_auto_scale((h, w), _REF_SCREEN, (self.upscale_factor,))
+        decision = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,))
         target_hw = decision.target_size
 
         tag = f"{self.name}_{h}x{w}_{self.upscale_factor}x"
@@ -113,19 +104,3 @@ class EvaluatorPerfVideoCV2:
             del backend
             gc.collect()
             torch.cuda.empty_cache()
-
-    def _summarize(self, totals):
-        decode = totals["decode"] / self.iterations * 1000
-        sr = totals["sr"] / self.iterations * 1000
-        display = totals["display"] / self.iterations * 1000
-        total = decode + sr + display
-
-        print("-" * 30)
-        print(f"decode  : {decode:8.2f} ms")
-        print(f"sr      : {sr:8.2f} ms")
-        print(f"display : {display:8.2f} ms")
-        print(f"total   : {total:8.2f} ms")
-        print("-" * 30)
-
-        return {"decode": f"{decode:.2f}", "sr": f"{sr:.2f}",
-                "display": f"{display:.2f}", "total": f"{total:.2f}"}

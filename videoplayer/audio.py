@@ -12,7 +12,7 @@ def _log(msg: str):
 class AudioTrack:
     """
     Extracts a video's audio track to a cached WAV via ffmpeg (once) and plays it back through
-    sounddevice, kept in sync with VideoPlayer's pause/seek state. Fails soft: if ffmpeg,
+    sounddevice, kept in sync with VideoPlayerCV2's pause/seek state. Fails soft: if ffmpeg,
     sounddevice, soundfile, or the audio track itself aren't available, `available` stays False
     and the player just runs silently.
     """

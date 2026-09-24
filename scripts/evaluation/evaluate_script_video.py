@@ -11,14 +11,14 @@ from utils.checkpoints import load_model_from_checkpoint
 from utils.csv_utils import save_to_csv, already_done
 from utils.path import get_logs_path, get_results_path, get_checkpoints_path, get_project_root
 from utils.logger import Logger
-from videoplayer.evaluator_perf_video_cv2 import EvaluatorPerfVideoCV2
-from videoplayer_nvdec.evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
-from videoplayer_nvdec.evaluator_perf_video_nvdec_gl import EvaluatorPerfVideoNVDECGL
-from videoplayer_gl.evaluator_perf_video_gl import EvaluatorPerfVideoGL
+from videoplayer.eval.evaluator_perf_video_cv2 import EvaluatorPerfVideoCV2
+from videoplayer.eval.evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
+from videoplayer.eval.evaluator_perf_video_nvdec_gl import EvaluatorPerfVideoNVDECGL
+from videoplayer.eval.evaluator_perf_video_gl import EvaluatorPerfVideoGL
 
-# CPU decode (videoplayer/, cv2.VideoCapture): "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
-# GPU decode (videoplayer_nvdec/, NVDEC):      "tensorrt-nvdec" (D2H->cv2) / "tensorrt-nvdec-gl" (zero-copy CUDA-GL)
-# Pure OpenGL (videoplayer_gl/, NVDEC decode): "opengl" (model compiled to GLSL shaders, no ML runtime)
+# CPU decode (players/cv2_player.py, cv2.VideoCapture): "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
+# GPU decode (players/nvdec.py, NVDEC):                  "tensorrt-nvdec" (D2H->cv2) / "tensorrt-nvdec-gl" (zero-copy CUDA-GL)
+# Pure OpenGL (players/gl.py, NVDEC decode):             "opengl" (model compiled to GLSL shaders, no ML runtime)
 # "tensorrt-nvdec" and "tensorrt-nvdec-gl" differ only in the 'display'/'total' stage; decode/sr are identical.
 # "opengl" supports only SR_FastEDSR_Multi checkpoints; other architectures are recorded blank.
 # "tensorrt-pt2" is the torch_tensorrt .pt2 path: use it for large models where "tensorrt  engine build OOMs

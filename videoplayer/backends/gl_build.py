@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Tuple
 
 from utils.checkpoints import load_model_from_checkpoint
-from .gl_runtime import GLUpscaler
+from .gl_engine import GLUpscaler
 from .shader_gen import build_passes
 
 SUPPORTED = "SR_FastEDSR_Multi"
