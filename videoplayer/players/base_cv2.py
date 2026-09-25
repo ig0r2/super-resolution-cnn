@@ -173,7 +173,7 @@ class _BaseCv2Player:
         print("  f           Toggle fullscreen")
         print("  q / Esc     Quit")
         if self.audio is not None and not self.audio.available:
-            print("Audio: no track / ffmpeg / sounddevice available, running silent.")
+            print("Audio: no track / PyAV / sounddevice available, running silent.")
 
     def play(self):
         if self.upscale_fn is None:

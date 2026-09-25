@@ -1,8 +1,6 @@
-import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Optional
 
 
 def _log(msg: str):
@@ -11,13 +9,12 @@ def _log(msg: str):
 
 class AudioTrack:
     """
-    Extracts a video's audio track to a cached WAV via ffmpeg (once) and plays it back through
-    sounddevice, kept in sync with VideoPlayerCV2's pause/seek state. Fails soft: if ffmpeg,
-    sounddevice, soundfile, or the audio track itself aren't available, `available` stays False
-    and the player just runs silently.
+    Decodes a video's first audio stream in-process with PyAV into memory as packed float32
+    mono stays mono, everything else is downmixed to stereo -- and plays it back through sounddevice
+    kept in sync with the player's pause/seek state.
     """
 
-    def __init__(self, video_path: Path, ffmpeg_path: str = "ffmpeg"):
+    def __init__(self, video_path: Path):
         self.available = False
         self.data = None
         self.samplerate = 0
@@ -29,32 +26,10 @@ class AudioTrack:
         self._stream = None
         self._sd = None
 
-        cache_dir = Path(__file__).resolve().parent / ".cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_path = cache_dir / f"{video_path.stem}_audio.wav"
-
-        if not cache_path.exists():
-            _log(f"Extracting audio track via ffmpeg -> {cache_path.name} ...")
-            t0 = time.perf_counter()
-            try:
-                subprocess.run(
-                    [ffmpeg_path, "-y", "-i", str(video_path), "-vn",
-                     "-acodec", "pcm_s16le", str(cache_path)],
-                    check=True, capture_output=True,
-                )
-            except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
-                _log(f"Audio extraction failed ({e}), playing without sound.")
-                return
-            _log(f"Audio extracted in {time.perf_counter() - t0:.1f}s")
-        else:
-            _log(f"Reusing cached audio track {cache_path.name}")
-
-        try:
-            import soundfile as sf
-            data, samplerate = sf.read(str(cache_path), dtype="float32", always_2d=True)
-        except Exception as e:
-            _log(f"Could not load audio track ({e}), playing without sound.")
+        loaded = self._load(Path(video_path))
+        if loaded is None:
             return
+        data, samplerate = loaded
 
         try:
             import sounddevice as sd
@@ -68,6 +43,47 @@ class AudioTrack:
         self._sd = sd
         self.available = True
         _log(f"Audio track loaded ({self.channels}ch @ {self.samplerate}Hz).")
+
+    @staticmethod
+    def _load(video_path: Path):
+        """Return ``(float32 (N, channels) samples, samplerate)``, or None to run silent."""
+        try:
+            import av
+            import numpy as np
+        except Exception as e:
+            _log(f"PyAV not available ({e}), playing without sound.")
+            return None
+
+        t0 = time.perf_counter()
+        try:
+            with av.open(str(video_path)) as container:
+                if not container.streams.audio:
+                    _log("No audio stream in the video, playing without sound.")
+                    return None
+                stream = container.streams.audio[0]
+                stream.thread_type = "AUTO"
+                channels = 1 if stream.channels == 1 else 2
+                samplerate = stream.rate
+                resampler = av.AudioResampler(format="flt", layout="mono" if channels == 1 else "stereo",
+                                              rate=samplerate)
+
+                chunks = []
+                for frame in container.decode(stream):
+                    for out in resampler.resample(frame):
+                        chunks.append(out.to_ndarray())
+                for out in resampler.resample(None):  # flush
+                    chunks.append(out.to_ndarray())
+        except Exception as e:
+            _log(f"Audio decode failed ({e}), playing without sound.")
+            return None
+
+        if not chunks:
+            _log("Audio stream decoded to no samples, playing without sound.")
+            return None
+        # Packed float32 frames come out as (1, samples * channels), interleaved.
+        data = np.concatenate(chunks, axis=1).reshape(-1, channels)
+        _log(f"Audio decoded via PyAV in {time.perf_counter() - t0:.1f}s")
+        return np.ascontiguousarray(data, dtype=np.float32), samplerate
 
     def _callback(self, outdata, frames, time_info, status):
         with self._lock:

@@ -5,6 +5,14 @@ checkpoints/
 inference/
 exports/
 videoinput/
+reports/
+
+# Keep only LaTeX sources, bibliographies, and PDFs in tex/.
+/tex/**
+!/tex/**/
+!/tex/**/*.tex
+!/tex/**/*.bib
+!/tex/**/*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
