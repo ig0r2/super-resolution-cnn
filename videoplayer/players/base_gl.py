@@ -80,13 +80,13 @@ class _BaseGlPlayer(_BaseCv2Player):
 
         frame_times = deque(maxlen=20)
         loop_times = deque(maxlen=20)
-        last_frame_id = -1
+        last_frame_counter = -1
         have_frame = False
         last_print = 0.0  # throttle console FPS to ~1 Hz (visible in fullscreen)
 
         while not self._surface.should_close():
             self._surface.poll()
-            frame, frame_id, index = self._reader.get_latest()
+            frame, frame_counter, index = self._reader.get_latest()
             self._current_index = index
 
             if frame is None:
@@ -95,12 +95,12 @@ class _BaseGlPlayer(_BaseCv2Player):
                 time.sleep(0.005)
                 continue
 
-            if frame_id != last_frame_id:
+            if frame_counter != last_frame_counter:
                 t0 = time.perf_counter()
                 self._gl_infer(frame)
                 torch.cuda.synchronize()  # so the timing reflects real GPU work, not just launch
                 frame_times.append((time.perf_counter() - t0) * 1000)
-                last_frame_id = frame_id
+                last_frame_counter = frame_counter
                 have_frame = True
                 if not self.paused:
                     loop_times.append(time.perf_counter())

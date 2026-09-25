@@ -23,7 +23,7 @@ class _FrameReader(threading.Thread):
         self.lock = threading.Lock()
         self.frame = None
         self.pos_frames = 0.0
-        self.frame_id = 0
+        self.frame_counter = 0
 
         self.running = True
         self.paused = False
@@ -53,7 +53,7 @@ class _FrameReader(threading.Thread):
             with self.lock:
                 self.frame = frame
                 self.pos_frames = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
-                self.frame_id += 1
+                self.frame_counter += 1
 
             next_time += self.frame_time
             sleep_time = next_time - time.perf_counter()
@@ -64,7 +64,7 @@ class _FrameReader(threading.Thread):
 
     def get_latest(self):
         with self.lock:
-            return self.frame, self.frame_id, self.pos_frames
+            return self.frame, self.frame_counter, self.pos_frames
 
     def request_seek(self, target_frame: float):
         with self.lock:

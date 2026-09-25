@@ -26,7 +26,7 @@ class _DecodeReader(threading.Thread):
         self.lock = threading.Lock()
         self.frame = None
         self.index = 0
-        self.frame_id = 0
+        self.frame_counter = 0
 
         self.running = True
         self.paused = False
@@ -58,7 +58,7 @@ class _DecodeReader(threading.Thread):
             with self.lock:
                 self.frame = frame
                 self.index = cursor
-                self.frame_id += 1
+                self.frame_counter += 1
 
             cursor += 1
             next_time += self.frame_time
@@ -70,7 +70,7 @@ class _DecodeReader(threading.Thread):
 
     def get_latest(self):
         with self.lock:
-            return self.frame, self.frame_id, self.index
+            return self.frame, self.frame_counter, self.index
 
     def request_seek(self, target_index: int):
         with self.lock:

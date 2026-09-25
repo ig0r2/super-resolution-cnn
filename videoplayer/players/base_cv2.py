@@ -196,14 +196,14 @@ class _BaseCv2Player:
 
         frame_times = deque(maxlen=20)  # compute FPS (SR + display)
         loop_times = deque(maxlen=20)  # displayed FPS
-        last_frame_id = -1
+        last_frame_counter = -1
         last_output = None
         prev_paused = self.paused
         needs_redraw = False
         running = True
 
         while running:
-            frame, frame_id, pos = self._reader.get_latest()
+            frame, frame_counter, pos = self._reader.get_latest()
 
             if frame is None:
                 key = cv2.waitKeyEx(10)
@@ -212,13 +212,13 @@ class _BaseCv2Player:
                     break
                 continue
 
-            if frame_id != last_frame_id or last_output is None:
+            if frame_counter != last_frame_counter or last_output is None:
                 t0 = time.perf_counter()
                 output = self._produce_display(frame)
                 frame_times.append((time.perf_counter() - t0) * 1000)
 
                 last_output = output
-                last_frame_id = frame_id
+                last_frame_counter = frame_counter
 
                 if not self.paused:
                     loop_times.append(time.perf_counter())
