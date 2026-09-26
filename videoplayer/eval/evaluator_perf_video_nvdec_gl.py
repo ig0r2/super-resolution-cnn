@@ -36,10 +36,9 @@ class EvaluatorPerfVideoNVDECGL(EvaluatorPerfVideoNVDEC):
             self._disp = None
 
     def _display(self, out, target_hw):
-        # (3,H*s,W*s) uint8 RGB CUDA -> GPU bicubic downscale to (3,Ht,Wt) RGB (no BGR swap needed),
-        # then device->device copy into the GL texture (the zero-copy analog of the base D2H copy).
-        x = out.unsqueeze(0).float()
-        x = F.interpolate(x, size=target_hw, mode="bicubic", align_corners=False)
+        # (1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale to (3,Ht,Wt) uint8 RGB (no BGR swap
+        # needed), then device->device copy into the GL texture (the zero-copy analog of the D2H copy).
+        x = F.interpolate(out, size=target_hw, mode="bicubic", align_corners=False)
         x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
         self._disp.upload(x)
         return None

@@ -1,18 +1,15 @@
 import time
 from collections import deque
-from pathlib import Path
-from typing import Optional, Tuple
 
 import cv2
 import numpy as np
 
-from ..audio import AudioTrack
-from ..scaling import choose_auto_scale, get_screen_size
+from .base import _BasePlayer, format_time
+from .reader import _DecodeReader
 
 
 class Letterboxer:
-    """Fits ``display`` (H,W,3) inside ``screen_size`` (h, w) preserving its aspect ratio, centered
-    on black bars."""
+    """Centers ``display`` (H,W,3) on black bars filling ``screen_size`` (h, w)."""
 
     def __init__(self):
         self._canvas = None
@@ -20,14 +17,10 @@ class Letterboxer:
 
     def render(self, display, screen_size):
         sh, sw = screen_size
-        h, w = display.shape[:2]
-        scale = min(sw / w, sh / h)
-        nw, nh = max(1, round(w * scale)), max(1, round(h * scale))
-        if (nw, nh) != (w, h):
-            interp = cv2.INTER_CUBIC if scale > 1 else cv2.INTER_AREA
-            display = cv2.resize(display, (nw, nh), interpolation=interp)
-        if (nw, nh) == (sw, sh):
-            return display  # exact fit, no bars, no canvas needed
+        nh, nw = display.shape[:2]
+        if (nw, nh) == (sw, sh) or nw > sw or nh > sh:
+            # exact fit (no bars needed), or larger than the screen
+            return display
 
         y0, x0 = (sh - nh) // 2, (sw - nw) // 2
         geom = (nh, nw, sh, sw, display.dtype)
@@ -47,12 +40,6 @@ class Letterboxer:
         return canvas
 
 
-def format_time(seconds: float) -> str:
-    """Seconds -> M:SS"""
-    total = int(seconds)
-    return f"{total // 60}:{total % 60:02d}"
-
-
 # cv2.waitKeyEx extended key codes (Windows)
 KEY_ESC = 27
 KEY_SPACE = 32
@@ -62,74 +49,21 @@ KEY_UP = 2490368
 KEY_DOWN = 2621440
 
 
-class _BaseCv2Player:
+class _BaseCv2Player(_BasePlayer):
     """
-    Shared cv2-based SR player: play/pause, seeking, fullscreen toggle, the FPS/time overlay and
-    the real-time frame-skipping display loop. Subclasses only supply where frames come from
-    (``_make_reader``) and how a source frame becomes a BGR image to show (``_produce_display``).
+    cv2 display on top of _BasePlayer: cv2 window, fullscreen toggle, keyboard controls, the
+    FPS/time overlay (letterboxed in fullscreen) and the real-time frame-skipping display loop.
+    Subclasses open a decoder and supply how a decoded frame becomes a BGR image to show
+    (``_produce_display``).
     """
 
-    config_desc = "SR video player"
-
-    def __init__(self, video_path,
-                 fps: float, frame_count: int, frame_size: Tuple[int, int],
-                 target_size: Optional[Tuple[int, int]] = None,
-                 enable_audio: bool = True, start_fullscreen: bool = True,
-                 seek_step_s: float = 1.0, seek_step_large_s: float = 10.0):
-        self.video_path = Path(video_path)
-        self.window_name = "SR Video"
-        self.seek_step_s = seek_step_s
-        self.seek_step_large_s = seek_step_large_s
-        self.target_size = target_size
-        self.log_prefix = "[videoplayer]"
-
-        self.fps = fps
-        self.frame_count = frame_count
-        self.frame_size = frame_size
-
-        self.upscale_fn = None
-        self.paused = False
-        self.fullscreen = start_fullscreen
-        self.screen_size = get_screen_size()
-        self._reader = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._letterboxer = Letterboxer()
-        self.audio = AudioTrack(self.video_path) if enable_audio else None
-
-    @property
-    def size(self):
-        return self.frame_size
-
-    def set_upscale_fn(self, upscale_fn):
-        self.upscale_fn = upscale_fn
-        return self
-
-    def configure_scale(self, candidate_scales=(2, 3, 4)) -> int:
-        """Pick the model scale for this video on the current screen."""
-        decision = choose_auto_scale(self.frame_size, self.screen_size, candidate_scales)
-        print(f"{self.log_prefix} Frame {self.frame_size} | Screen {self.screen_size} | "
-              f"Model scale {decision.model_scale}x -> {decision.model_output_size} | "
-              f"Target (bicubic) {decision.target_size}")
-        self.target_size = decision.target_size if decision.target_size != decision.model_output_size else None
-        return decision.model_scale
-
-    def _make_reader(self):
-        """Create and return the background reader (interface: get_latest / request_seek /
-        set_paused / stop / is_alive / start / join)."""
-        raise NotImplementedError
 
     def _produce_display(self, frame):
         """Turn one source frame into a BGR (H,W,3) uint8 numpy image ready for cv2.imshow."""
         raise NotImplementedError
-
-    def _release_source(self):
-        """Release any decode resource on teardown (no-op unless a subclass owns one)."""
-
-    def _seek(self, delta_seconds: float, current: float):
-        target = int(current + delta_seconds * self.fps)
-        target = max(0, min(target, max(0, self.frame_count - 1)))
-        self._reader.request_seek(target)
-        if self.audio is not None:
-            self.audio.seek(target / self.fps)
 
     def _window_closed(self) -> bool:
         """cv2 doesn't fire an event when the user clicks the window's X button, so poll
@@ -165,16 +99,6 @@ class _BaseCv2Player:
             self._toggle_fullscreen()
         return True
 
-    def _print_controls(self):
-        print("Controls:")
-        print("  Space       Pause / play")
-        print(f"  Left/Right  Seek -{self.seek_step_s:g}s / +{self.seek_step_s:g}s")
-        print(f"  Up/Down     Seek +{self.seek_step_large_s:g}s / -{self.seek_step_large_s:g}s")
-        print("  f           Toggle fullscreen")
-        print("  q / Esc     Quit")
-        if self.audio is not None and not self.audio.available:
-            print("Audio: no track / PyAV / sounddevice available, running silent.")
-
     def play(self):
         if self.upscale_fn is None:
             return
@@ -188,7 +112,7 @@ class _BaseCv2Player:
         elif self.target_size is not None:
             cv2.resizeWindow(self.window_name, self.target_size[1], self.target_size[0])
 
-        self._reader = self._make_reader()
+        self._reader = _DecodeReader(self.decoder)
         self._reader.start()
         if self.audio is not None:
             self.audio.start()

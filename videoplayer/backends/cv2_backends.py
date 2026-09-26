@@ -1,96 +1,92 @@
+"""
+SR backends for the cv2-display player (players/cv2_player.py): each is callable on the decoder's
+(H,W,3) uint8 BGR numpy frame on the host (PyAV or cv2) and returns a BGR uint8 numpy frame
+(H*s,W*s,3) ready for cv2.
+
+Every backend takes `model` (checkpoint name under checkpoints/ or a .pth path), the input frame
+size and the scale; the checkpoint path and the cache tag come from cache_paths.resolve_model.
+
+TensorRT / torch_tensorrt / onnxruntime run a VideoWrapper export, so the layout conversion and the
+BGR output happen inside the graph. ncnn runs the bare model and does its own pre/post-processing.
+"""
+
 import time
+from typing import Literal
 
 import numpy as np
 import torch
 
-from .cv2_wrapper import VideoWrapperCV2
-from .export import export_trt, export_onnx_bare, export_onnx_uint8
+from .export import export_trt, export_onnx_bare, get_onnx_video, load_model
 from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
-from .export_ncnn import export_ncnn, NCNNRunner
+from .wrappers import VideoIO
 from .. import cache_paths
+
+
+Runtype = Literal["tensorrt", "tensorrt-pt2", "ncnn-vulkan",
+                  "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
+                  "onnxruntime-directml", "onnxruntime-cpu"]
 
 
 def _log(msg: str):
     print(f"[videoplayer] {msg}")
 
 
-def _load_model(checkpoint_path, upscale_factor):
-    from utils.checkpoints import load_model_from_checkpoint
-
-    _log(f"Loading checkpoint {checkpoint_path.name}")
-    t0 = time.perf_counter()
-    model, _ = load_model_from_checkpoint(checkpoint_path, "cpu")
-    model.upscale_factor = upscale_factor
-    _log(f"Checkpoint loaded in {time.perf_counter() - t0:.1f}s")
-    return model
+def _check_output(io: VideoIO):
+    if io.output != "bgr":
+        raise ValueError(f"cv2-display backends need a VideoIO with output='bgr', got {io.output!r}")
 
 
-def get_onnx(checkpoint_path, onnx_path, input_size, upscale_factor, *, wrap=True):
-    """Return `onnx_path`, exporting it from the checkpoint only if the ONNX is missing.
-        wrap=True  -> VideoWrapperCV2: for onnx runtime and tensorrt
-        wrap=False -> bare model (CHW RGB): for ncnn/pnnx
-    """
-    if onnx_path.exists():
-        _log(f"Reusing cached ONNX {onnx_path.name}")
-        return onnx_path
+class _PinnedIO:
+    """Pinned host staging buffers for async H2D upload of the input and D2H download of the
+    output, allocated lazily on the first frame. The returned array is a view into the pinned
+    output buffer, which is reused across calls (consume it before the next call)."""
 
-    if not checkpoint_path.exists():
-        raise RuntimeError(f"No cached ONNX ({onnx_path.name}) and no checkpoint ({checkpoint_path.name})")
+    def __init__(self):
+        self._in = None
+        self._out = None
 
-    onnx_path.parent.mkdir(parents=True, exist_ok=True)
-    model = _load_model(checkpoint_path, upscale_factor)
-    _log(f"Exporting {'cv2 wrapper' if wrap else 'bare'} ONNX "
-         f"({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
-    t0 = time.perf_counter()
-    if wrap:
-        export_onnx_uint8(VideoWrapperCV2(model), onnx_path, (input_size[0], input_size[1]))
-    else:
-        export_onnx_bare(model, onnx_path, (input_size[0], input_size[1]))
-    _log(f"ONNX export done in {time.perf_counter() - t0:.1f}s")
-    return onnx_path
+    def upload(self, frame: np.ndarray) -> torch.Tensor:
+        if self._in is None or tuple(self._in.shape) != frame.shape:
+            self._in = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
+        return self._in.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
+
+    def download(self, out_gpu) -> np.ndarray:
+        if self._out is None or self._out.shape != out_gpu.shape:
+            self._out = torch.empty(out_gpu.shape, dtype=out_gpu.dtype, pin_memory=True)
+        self._out.copy_(out_gpu, non_blocking=True)
+        torch.cuda.synchronize()  # finish the async D2H before the numpy view is read
+        return self._out.numpy()
 
 
 class TRTBackend:
-    """Raw TensorRT engine backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
+    """Raw TensorRT engine backend built from the `io` VideoWrapper ONNX."""
 
-    def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int):
-        onnx_path = cache_paths.onnx_cv2(tag)
-        engine_path = cache_paths.engine_cv2(tag)
+    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
+        checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
+        _check_output(io)
+        onnx_path = cache_paths.onnx_video(tag, io.tag)
+        engine_path = cache_paths.engine_video(tag, io.tag)
         engine_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prefer cached artifacts: a cached engine skips everything; otherwise build it from the
-        # shared cv2 ONNX, exporting that from the checkpoint only if it isn't cached either.
+        # ONNX, exporting that from the checkpoint only if it isn't cached either.
         if not engine_path.exists():
-            get_onnx(checkpoint_path, onnx_path, input_size, upscale_factor, wrap=True)
+            get_onnx_video(checkpoint_path, onnx_path, input_size, upscale_factor, io)
 
-        _log("Building/loading TensorRT engine (first run for this size/scale can take a while) ...")
+        _log(f"Building/loading TensorRT engine {engine_path.name} (first run for this size/scale can take a while) ...")
         t0 = time.perf_counter()
         engine = get_raw_trt_engine(onnx_path, engine_path)
         _log(f"TensorRT engine ready in {time.perf_counter() - t0:.1f}s")
         self.runner = TRTRawRunner(engine)
-
-        # Pinned staging buffers for async H2D upload / D2H download, allocated lazily on the first
-        # frame. The runner casts uint8 -> fp16 on GPU. The returned array is a view into the pinned
-        # output buffer, which is reused across calls (consume it before the next call).
-        self._staging = None
-        self._out_staging = None
-
+        self._io = _PinnedIO()  # the runner casts uint8 -> engine dtype on the GPU
         _log("TRTBackend ready.")
 
     def __call__(self, frame: np.ndarray) -> np.ndarray:
-        if self._staging is None or tuple(self._staging.shape) != frame.shape:
-            self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
-        frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True)
-        out_gpu = self.runner(frame_gpu)
-        if self._out_staging is None or self._out_staging.shape != out_gpu.shape:
-            self._out_staging = torch.empty(out_gpu.shape, dtype=out_gpu.dtype, pin_memory=True)
-        self._out_staging.copy_(out_gpu, non_blocking=True)
-        torch.cuda.synchronize()
-        return self._out_staging.numpy()
+        return self._io.download(self.runner(self._io.upload(frame)))
 
 
 class PT2Backend:
-    """torch_tensorrt (.pt2) backend. Callable on a BGR uint8 numpy frame (H,W,3).
+    """torch_tensorrt (.pt2) backend of the `io` VideoWrapper.
 
     Unlike TRTBackend, which builds a raw TensorRT *engine* from ONNX, this compiles the model
     with torch_tensorrt and serialises a .pt2. It's the safer choice for LARGE models: building a
@@ -101,10 +97,12 @@ class PT2Backend:
     small/medium models the raw engine (TRTBackend) is a bit faster, so prefer it when it fits.
     """
 
-    def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int):
+    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
         import torch_tensorrt  # noqa: F401  (registers the ops needed to load the .pt2)
+        checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
 
-        pt2_path = cache_paths.pt2_cv2(tag)
+        _check_output(io)
+        pt2_path = cache_paths.pt2_video(tag, io.tag)
         pt2_path.parent.mkdir(parents=True, exist_ok=True)
 
         # No ONNX step: torch_tensorrt compiles the torch model directly, so a cache miss needs the
@@ -113,40 +111,26 @@ class PT2Backend:
             raise RuntimeError(f"No cached .pt2 ({pt2_path.name}) and no checkpoint ({checkpoint_path.name})")
 
         if not pt2_path.exists():
-            model = _load_model(checkpoint_path, upscale_factor)
+            model = load_model(checkpoint_path, upscale_factor)
             model.half()
             _log(f"Compiling torch_tensorrt .pt2 ({input_size[0]}x{input_size[1]}) -> {pt2_path.name} ...")
             t0 = time.perf_counter()
-            export_trt(VideoWrapperCV2(model), pt2_path, (input_size[0], input_size[1], 3))
+            export_trt(io.wrap(model), pt2_path, (input_size[0], input_size[1]))
             _log(f".pt2 compile done in {time.perf_counter() - t0:.1f}s")
         else:
             _log(f"Reusing cached .pt2 model {pt2_path.name}")
 
         self.model = torch.export.load(str(pt2_path)).module().cuda()
-
-        # Pinned staging buffers for async H2D upload / D2H download, allocated lazily on the first
-        # frame. The returned array is a view into the pinned output buffer, which is reused across
-        # calls (consume it before the next call).
-        self._staging = None
-        self._out_staging = None
-
+        self._io = _PinnedIO()
         _log("PT2Backend ready.")
 
     def __call__(self, frame: np.ndarray) -> np.ndarray:
-        if self._staging is None or tuple(self._staging.shape) != frame.shape:
-            self._staging = torch.empty(frame.shape, dtype=torch.uint8, pin_memory=True)
         # The compiled module expects fp16 input directly (the raw runner casts on-GPU instead).
-        frame_gpu = self._staging.copy_(torch.from_numpy(frame)).cuda(non_blocking=True).half()
-        out_gpu = self.model(frame_gpu)
-        if self._out_staging is None or self._out_staging.shape != out_gpu.shape:
-            self._out_staging = torch.empty(out_gpu.shape, dtype=out_gpu.dtype, pin_memory=True)
-        self._out_staging.copy_(out_gpu, non_blocking=True)
-        torch.cuda.synchronize()  # finish the async D2H before the numpy view is read
-        return self._out_staging.numpy()
+        return self._io.download(self.model(self._io.upload(frame).half()))
 
 
 class ONNXBackend:
-    """onnxruntime backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
+    """onnxruntime backend of the `io` VideoWrapper ONNX."""
 
     PROVIDER_MAP = {
         "cuda": ["CUDAExecutionProvider", "CPUExecutionProvider"],
@@ -156,12 +140,15 @@ class ONNXBackend:
         "cpu": ["CPUExecutionProvider"],
     }
 
-    def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int, provider: str = "cuda"):
+    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO, provider: str = "cuda"):
         import onnxruntime as ort
+        checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
 
+        _check_output(io)
         print(ort.get_available_providers())
 
-        onnx_path = get_onnx(checkpoint_path, cache_paths.onnx_cv2(tag), input_size, upscale_factor, wrap=True)
+        onnx_path = get_onnx_video(checkpoint_path, cache_paths.onnx_video(tag, io.tag),
+                                   input_size, upscale_factor, io)
 
         _log(f"Creating onnxruntime session (provider={provider}) ...")
         t0 = time.perf_counter()
@@ -174,15 +161,28 @@ class ONNXBackend:
 
 
 class NCNNBackend:
-    """ncnn-Vulkan backend. Callable on a BGR uint8 numpy frame (H,W,3)."""
+    """ncnn-Vulkan backend (bare model, no wrapper; NCNNRunner does the BGR pre/post-processing).
+    Takes and returns BGR frames."""
 
-    def __init__(self, checkpoint_path, tag: str, input_size, upscale_factor: int):
+    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
+        from .export_ncnn import export_ncnn, NCNNRunner
+        checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
+
+        _check_output(io)
+        if io.input != "bgr":
+            raise ValueError(f"ncnn-vulkan takes BGR (H,W,3) frames, got input layout {io.input!r}")
         param_path, bin_path = cache_paths.ncnn_paths(tag)
         param_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # ncnn files first, otherwise convert from .onnx, exporting from checkpoint if no .onnx
+        # ncnn files first, otherwise convert from the bare .onnx, exporting that from the checkpoint
         if not param_path.exists():
-            onnx_path = get_onnx(checkpoint_path, cache_paths.onnx(tag), input_size, upscale_factor, wrap=False)
+            onnx_path = cache_paths.onnx(tag)
+            if not onnx_path.exists():
+                if not checkpoint_path.exists():
+                    raise RuntimeError(f"No cached ONNX ({onnx_path.name}) and no checkpoint ({checkpoint_path.name})")
+                onnx_path.parent.mkdir(parents=True, exist_ok=True)
+                _log(f"Exporting bare ONNX ({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
+                export_onnx_bare(load_model(checkpoint_path, upscale_factor), onnx_path, input_size)
             _log(f"Converting ncnn from ONNX ({input_size[0]}x{input_size[1]}) -> {param_path.name} ...")
             t0 = time.perf_counter()
             export_ncnn(onnx_path, param_path.parent, tag, (input_size[0], input_size[1]))
@@ -191,8 +191,26 @@ class NCNNBackend:
             _log(f"Reusing cached ncnn model {param_path.name}")
 
         self.runner = NCNNRunner(param_path, bin_path)
-
         _log("NCNNBackend ready.")
 
     def __call__(self, frame: np.ndarray) -> np.ndarray:
         return self.runner(frame)
+
+
+def make_backend(runtype: Runtype, model, input_size, upscale_factor: int, io: VideoIO):
+    """Build the cv2-display backend for a runtype; "onnxruntime-<provider>" picks the ORT provider."""
+    if runtype == "tensorrt":
+        _log("Setting up TensorRT backend")
+        return TRTBackend(model, input_size, upscale_factor, io)
+    if runtype == "tensorrt-pt2":
+        # torch_tensorrt .pt2: safer for large models where the raw engine build OOMs (see PT2Backend).
+        _log("Setting up torch_tensorrt (.pt2) backend")
+        return PT2Backend(model, input_size, upscale_factor, io)
+    if runtype == "ncnn-vulkan":
+        _log("Preparing ncnn-Vulkan backend (conversion on first run can take a while) ...")
+        return NCNNBackend(model, input_size, upscale_factor, io)
+    if runtype.startswith("onnxruntime-"):
+        provider = runtype.split("-", 1)[1]  # cuda / tensorrt / openvino / directml / cpu
+        _log(f"Preparing onnxruntime backend (provider={provider}; export on first run can take a while) ...")
+        return ONNXBackend(model, input_size, upscale_factor, io, provider=provider)
+    raise ValueError(f"Unknown runtype: {runtype}")

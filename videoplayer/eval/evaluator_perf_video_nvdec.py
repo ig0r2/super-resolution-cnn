@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from videoplayer.scaling import choose_auto_scale
-from videoplayer.decode.decoder import NvDecoder
+from videoplayer.decode.nvdec_decoder import NvDecoder
 from videoplayer.backends.nvdec_backend import TRTBackendNVDEC
 from ._base import _BaseVideoPerfEvaluator
 
@@ -22,15 +22,19 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
 
       - decode  : NVDEC decode alone (the hard floor the pipeline can never beat)
       - sr      : TensorRT SR alone on the decoded frame (isolates the model)
-      - display : GPU bicubic downscale + device->host copy alone
+      - display : GPU bicubic downscale + device->host copy alone (the engine outputs fp16 RGB NCHW)
       - total   : decode + SR + display (the real display path)
 
     Small models: sr is small next to decode, so total sits near the decode/overhead floor -> a
     faster model buys little. Large models: sr grows and dominates total -> the model is the
     bottleneck. That crossover is exactly what these columns expose.
 
-    Uses TRTBackendNVDEC, so it shares the exports/trt_nvdec engine cache with run_trt_nvdec.py.
+    Uses TRTBackendNVDEC, so it shares the engine cache with run_trt_nvdec.py.
     """
+
+    # Engine output layout: fp16 RGB NCHW, which the display step downscales directly (both
+    # displays always downscale here, see target_hw).
+    sr_output = "rgb_f16"
 
     def evaluate(self):
         torch.cuda.empty_cache()
@@ -44,8 +48,7 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
         decision = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,))
         target_hw = decision.target_size
 
-        tag = f"{self.name}_{h}x{w}_{self.upscale_factor}x"
-        runner = TRTBackendNVDEC(self.checkpoint_path, tag, (h, w), self.upscale_factor)
+        runner = TRTBackendNVDEC(self.checkpoint_path, (h, w), self.upscale_factor, output=self.sr_output)
 
         def total_step(i):
             self._display(runner(decoder.frame(i % n)), target_hw)
@@ -89,12 +92,12 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
         """Hook: tear down the display target after timing (no-op for the cv2/D2H path)."""
 
     def _display(self, out, target_hw):
-        """(3,H*s,W*s) uint8 RGB CUDA -> GPU bicubic downscale + BGR + device->host copy to numpy.
+        """(1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale -> BGR + device->host copy to numpy.
 
-        This is the real cv2 display path: the returned numpy array is what cv2.imshow would show,
-        and .cpu() forces the copy to complete so the 'display' timing includes the D2H transfer.
+        This is the real cv2 display path (VideoPlayerNvdecCV2._to_display): the returned numpy
+        array is what cv2.imshow would show, and .cpu() forces the copy to complete so the
+        'display' timing includes the D2H transfer.
         """
-        x = out.unsqueeze(0).float()
-        x = F.interpolate(x, size=target_hw, mode="bicubic", align_corners=False)
+        x = F.interpolate(out, size=target_hw, mode="bicubic", align_corners=False)
         x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
         return x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy()

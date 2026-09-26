@@ -16,7 +16,9 @@ from videoplayer.eval.evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
 from videoplayer.eval.evaluator_perf_video_nvdec_gl import EvaluatorPerfVideoNVDECGL
 from videoplayer.eval.evaluator_perf_video_gl import EvaluatorPerfVideoGL
 
-# CPU decode (players/cv2_player.py, cv2.VideoCapture): "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
+# CPU decode (players/cv2_player.py):                    "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
+#   with DECODER "cv2" (cv2.VideoCapture) or "pyav" (PyAV). cv2 rows keep the plain runtype name (continuing the
+#   older rows); PyAV rows are recorded as "<runtype>-pyav" (e.g. "tensorrt-pyav").
 # GPU decode (players/nvdec.py, NVDEC):                  "tensorrt-nvdec" (D2H->cv2) / "tensorrt-nvdec-gl" (zero-copy CUDA-GL)
 # Pure OpenGL (players/gl.py, NVDEC decode):             "opengl" (model compiled to GLSL shaders, no ML runtime)
 # "tensorrt-nvdec" and "tensorrt-nvdec-gl" differ only in the 'display'/'total' stage; decode/sr are identical.
@@ -39,7 +41,8 @@ STAGES = ("decode", "sr", "display", "total")
 
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[2, 3, 4] = 2
-    RUNTYPE: Runtype = "onnxruntime-cuda"
+    RUNTYPE: Runtype = "tensorrt-nvdec"
+    DECODER: Literal["pyav", "cv2"] = "pyav"  # CPU-decode runtypes only
 
     SKIP_EVALUATED = True
     WARMUP_RUNS = 50
@@ -176,22 +179,26 @@ if __name__ == "__main__":
 
     csv_path = get_results_path(f"results_{UPSCALE_FACTOR}x_video_ms.csv")
 
+    # CSV/log label: CPU-decode runtypes decoded with PyAV are recorded as "<runtype>-pyav".
+    CPU_RUNTYPE = RUNTYPE not in (GL_RUNTYPE, NVDEC_RUNTYPE, NVDEC_GL_RUNTYPE)
+    RUN_LABEL = f"{RUNTYPE}-pyav" if CPU_RUNTYPE and DECODER == "pyav" else RUNTYPE
+
     expected_cols = [f"{label} {stage}" for label, _ in VIDEOS for stage in STAGES]
 
 
-    def build_evaluator(checkpoint_path, name, video_path):
+    def build_evaluator(checkpoint_path, video_path):
         if RUNTYPE == GL_RUNTYPE:
             return EvaluatorPerfVideoGL(
-                checkpoint_path=checkpoint_path, name=name, video_path=video_path,
+                checkpoint_path=checkpoint_path, video_path=video_path,
                 upscale_factor=UPSCALE_FACTOR, warmup_runs=WARMUP_RUNS, iterations=ITERATIONS)
         if RUNTYPE in (NVDEC_RUNTYPE, NVDEC_GL_RUNTYPE):
             evaluator_cls = EvaluatorPerfVideoNVDECGL if RUNTYPE == NVDEC_GL_RUNTYPE else EvaluatorPerfVideoNVDEC
             return evaluator_cls(
-                checkpoint_path=checkpoint_path, name=name, video_path=video_path,
+                checkpoint_path=checkpoint_path, video_path=video_path,
                 upscale_factor=UPSCALE_FACTOR, warmup_runs=WARMUP_RUNS, iterations=ITERATIONS)
         return EvaluatorPerfVideoCV2(
-            checkpoint_path=checkpoint_path, name=name, video_path=video_path,
-            runtype=RUNTYPE, upscale_factor=UPSCALE_FACTOR,
+            checkpoint_path=checkpoint_path, video_path=video_path,
+            runtype=RUNTYPE, decoder=DECODER, upscale_factor=UPSCALE_FACTOR,
             warmup_runs=WARMUP_RUNS, iterations=ITERATIONS)
 
 
@@ -202,11 +209,11 @@ if __name__ == "__main__":
         checkpoint_path = Path(checkpoint_path)
         model_name = checkpoint_path.stem
 
-        if SKIP_EVALUATED and already_done(csv_path, model_name, RUNTYPE, expected_cols):
+        if SKIP_EVALUATED and already_done(csv_path, model_name, RUN_LABEL, expected_cols):
             print(f"Skipping {model_name}")
             continue
 
-        log_path = get_logs_path(f"evaluation/eval_{RUNTYPE}_{checkpoint_path.stem}.txt")
+        log_path = get_logs_path(f"evaluation/eval_{RUN_LABEL}_{checkpoint_path.stem}.txt")
 
         with Logger(log_path):
             print("=" * 50)
@@ -221,7 +228,7 @@ if __name__ == "__main__":
             print(f"Total parameters: {total_params:,}")
             print("-" * 30)
 
-            row = {"model_name": checkpoint_path.stem, "params": total_params, "runtype": RUNTYPE}
+            row = {"model_name": checkpoint_path.stem, "params": total_params, "runtype": RUN_LABEL}
 
             for label, video_path in VIDEOS:
                 video_path = Path(video_path)
@@ -229,9 +236,9 @@ if __name__ == "__main__":
                     print(f"Video missing, skipping: {video_path.name}")
                     continue
 
-                print(f"\n>>> {model_name} @ {label} ({video_path.name}) [{RUNTYPE}]")
+                print(f"\n>>> {model_name} @ {label} ({video_path.name}) [{RUN_LABEL}]")
                 try:
-                    metrics = build_evaluator(checkpoint_path, model_name, video_path).evaluate()
+                    metrics = build_evaluator(checkpoint_path, video_path).evaluate()
                 except RuntimeError as e:
                     print(f"Skipping ({model_name} @ {label}): {e}")
                     torch.cuda.empty_cache()

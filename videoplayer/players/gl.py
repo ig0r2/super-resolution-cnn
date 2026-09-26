@@ -1,18 +1,17 @@
 """
 Pure-OpenGL SR video player.
 
-Reuses VideoPlayerNvdecCV2 for NVDEC decode / background reader / audio / seeking and _BaseGlPlayer
-for the glfw display loop, and swaps the ML upscale step for a GLUpscaler that runs the model as
+_BaseGlPlayer provides NVDEC decode / background reader / audio / seeking and the glfw display
+loop; this player swaps the ML upscale step for a GLUpscaler that runs the model as
 GLSL shader passes. Everything stays on the GPU: NVDEC frame -> input GL texture (CUDA interop) ->
 shader graph -> window, with no torch conv, TensorRT, or ONNX runtime involved.
 """
 
 from .base_gl import _BaseGlPlayer
-from .nvdec import VideoPlayerNvdecCV2
 from ..backends.gl_engine import GLUpscaler
 
 
-class VideoPlayerGL(_BaseGlPlayer, VideoPlayerNvdecCV2):
+class VideoPlayerGL(_BaseGlPlayer):
     config_desc = "NVDEC decode + GLSL-shader SR (pure OpenGL, no ML runtime)"
 
     def set_engine(self, engine: GLUpscaler):

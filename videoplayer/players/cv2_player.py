@@ -1,110 +1,49 @@
-import threading
-import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 import cv2
 
 from .base_cv2 import _BaseCv2Player
 
+Decoder = Literal["pyav", "cv2"]
 
-class _FrameReader(threading.Thread):
-    """
-    Reads frames from a cv2.VideoCapture at real-time pace on a background thread and always
-    exposes only the latest one. This is what lets the main loop skip frames
-    instead of slowing down when upscale_fn is slower than the video's native framerate.
-    """
 
-    def __init__(self, cap: cv2.VideoCapture, fps: float):
-        super().__init__(daemon=True)
-        self.cap = cap
-        self.frame_time = 1.0 / fps if fps > 0 else 1.0 / 30.0
-
-        self.lock = threading.Lock()
-        self.frame = None
-        self.pos_frames = 0.0
-        self.frame_counter = 0
-
-        self.running = True
-        self.paused = False
-        self._seek_request: Optional[float] = None
-
-    def run(self):
-        next_time = time.perf_counter()
-
-        while self.running:
-            if self.paused:
-                time.sleep(0.01)
-                next_time = time.perf_counter()
-                continue
-
-            with self.lock:
-                seek_to = self._seek_request
-                self._seek_request = None
-            if seek_to is not None:
-                self.cap.set(cv2.CAP_PROP_POS_FRAMES, seek_to)
-                next_time = time.perf_counter()
-
-            ret, frame = self.cap.read()
-            if not ret:
-                self.running = False
-                break
-
-            with self.lock:
-                self.frame = frame
-                self.pos_frames = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
-                self.frame_counter += 1
-
-            next_time += self.frame_time
-            sleep_time = next_time - time.perf_counter()
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            else:
-                next_time = time.perf_counter()  # fell behind, don't try to catch up
-
-    def get_latest(self):
-        with self.lock:
-            return self.frame, self.frame_counter, self.pos_frames
-
-    def request_seek(self, target_frame: float):
-        with self.lock:
-            self._seek_request = target_frame
-
-    def set_paused(self, paused: bool):
-        self.paused = paused
-
-    def stop(self):
-        self.running = False
+def open_cpu_decoder(video_path, decoder: Decoder):
+    """PyAVDecoder or CV2Decoder (both give (H,W,3) BGR frames); imported lazily so
+    `import videoplayer` doesn't pull PyAV in."""
+    if decoder == "pyav":
+        from ..decode.pyav_decoder import PyAVDecoder
+        return PyAVDecoder(str(video_path))
+    if decoder == "cv2":
+        from ..decode.cv2_decoder import CV2Decoder
+        return CV2Decoder(str(video_path))
+    raise ValueError(f"Unknown decoder {decoder!r} (expected 'pyav' or 'cv2')")
 
 
 class VideoPlayerCV2(_BaseCv2Player):
     """
-    OpenCV based video player with play/pause, seeking, and a fullscreen toggle.
+    CPU decode -> SR backend -> optional cv2 bicubic downscale -> cv2 display, with play/pause,
+    seeking and a fullscreen toggle.
 
-    upscale_fn is applied to the latest available native-resolution BGR frame; if target_size
-    is given, the upscaled frame is bicubic-downscaled to that exact (h, w) so it fits the
-    screen. Frames are read on a background thread at real-time pace, so if upscale_fn is
-    slower than the video's native framerate, frames are skipped rather than played back slow.
+    decoder picks the CPU decoder: "pyav" (FFmpeg via PyAV) or "cv2" (cv2.VideoCapture); both give
+    (H,W,3) BGR frames, so the SR backend is built with `video_io()` (bgr -> bgr) either way.
+    upscale_fn returns a BGR uint8 (H*s,W*s,3) frame; if target_size is given it is
+    bicubic-downscaled to that exact (h, w) to fit the screen. Frames are decoded on a background
+    thread at real-time pace, so a slow SR step skips frames instead of slowing playback.
     """
 
-    config_desc = "OpenCV (cv2) decode + cv2 display"
-
-    def __init__(self, video_path, target_size: Optional[Tuple[int, int]] = None,
+    def __init__(self, video_path, decoder: Decoder = "pyav", target_size: Optional[Tuple[int, int]] = None,
                  enable_audio: bool = True, start_fullscreen: bool = True):
-        print(f"[videoplayer] Opening video {Path(video_path).name} ...")
-        self.cap = cv2.VideoCapture(str(video_path))
-        if not self.cap.isOpened():
-            raise RuntimeError(f"Could not open video: {video_path}")
-
-        fps = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
-        frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_size = (int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)), int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)))
-
-        super().__init__(video_path, fps, frame_count, frame_size,
+        print(f"[videoplayer] Opening video {Path(video_path).name} ({decoder}) ...")
+        self.config_desc = f"{decoder} decode + SR + cv2 display"
+        super().__init__(video_path, open_cpu_decoder(video_path, decoder),
                          target_size=target_size, enable_audio=enable_audio, start_fullscreen=start_fullscreen)
 
-    def _make_reader(self):
-        return _FrameReader(self.cap, self.fps)
+    @staticmethod
+    def video_io():
+        """The VideoIO the SR backend must be built with: BGR frames in, BGR out."""
+        from ..backends.wrappers import VideoIO
+        return VideoIO("bgr", "bgr")
 
     def _produce_display(self, frame):
         output = self.upscale_fn(frame)
@@ -112,6 +51,3 @@ class VideoPlayerCV2(_BaseCv2Player):
             th, tw = self.target_size
             output = cv2.resize(output, (tw, th), interpolation=cv2.INTER_CUBIC)
         return output
-
-    def _release_source(self):
-        self.cap.release()

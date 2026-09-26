@@ -13,10 +13,9 @@ class _BaseVideoPerfEvaluator:
     # deterministic and independent of whatever monitor the eval happens to run on.
     _ref_screen = (1080, 1920)
 
-    def __init__(self, checkpoint_path, name, video_path, upscale_factor=2,
+    def __init__(self, checkpoint_path, video_path, upscale_factor=2,
                  warmup_runs=20, iterations=200):
         self.checkpoint_path = Path(checkpoint_path)
-        self.name = name
         self.video_path = Path(video_path)
         self.upscale_factor = upscale_factor
         self.warmup_runs = warmup_runs

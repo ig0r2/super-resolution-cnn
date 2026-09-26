@@ -1,77 +1,59 @@
 import gc
 import time
-from typing import Literal, TypeAlias
 
 import cv2
 import torch
 
-from videoplayer.backends.cv2_backends import TRTBackend, ONNXBackend, NCNNBackend, PT2Backend
+from videoplayer.backends.cv2_backends import Runtype, make_backend
+from videoplayer.backends.wrappers import VideoIO
+from videoplayer.players.cv2_player import Decoder, open_cpu_decoder
 from videoplayer.scaling import choose_auto_scale
 from ._base import _BaseVideoPerfEvaluator
-
-Runtype: TypeAlias = Literal[
-    "tensorrt", "tensorrt-pt2", "ncnn-vulkan",
-    "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
-    "onnxruntime-directml", "onnxruntime-cpu"]
-
-
-def _make_backend(runtype: Runtype, checkpoint_path, tag, input_size, upscale_factor):
-    """Build the videoplayer backend for a runtype (same classes the demo player uses)."""
-    if runtype == "tensorrt":
-        return TRTBackend(checkpoint_path, tag, input_size, upscale_factor)
-    if runtype == "tensorrt-pt2":
-        # torch_tensorrt .pt2: safer for large models where the raw engine build OOMs (see PT2Backend).
-        return PT2Backend(checkpoint_path, tag, input_size, upscale_factor)
-    if runtype == "ncnn-vulkan":
-        return NCNNBackend(checkpoint_path, tag, input_size, upscale_factor)
-    if runtype.startswith("onnxruntime-"):
-        provider = runtype.split("-", 1)[1]  # cuda / tensorrt / openvino / directml / cpu
-        return ONNXBackend(checkpoint_path, tag, input_size, upscale_factor, provider=provider)
-    raise ValueError(f"Unknown runtype: {runtype}")
 
 
 class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
     """
-    Speed evaluation for the OpenCV-decode SR pipeline (players/cv2_player.py), supporting the
-    tensorrt, onnxruntime-* and ncnn-vulkan backends. The CPU-decode counterpart of
-    eval/evaluator_perf_video_nvdec.py's NVDEC evaluator.
+    Speed evaluation for the CPU-decode SR pipeline with cv2 display (players/cv2_player.py),
+    supporting the tensorrt, tensorrt-pt2, onnxruntime-* and ncnn-vulkan backends. The CPU-decode
+    counterpart of eval/evaluator_perf_video_nvdec.py's NVDEC evaluator.
 
-    Real frames are decoded with cv2.VideoCapture (CPU decode + host->device upload happens
-    inside the backend). All values are average milliseconds per frame:
+    Real frames are decoded on the CPU with `decoder` ("pyav": PyAV, "cv2": cv2.VideoCapture; both
+    (H,W,3) BGR, so both use the same bgr -> bgr engine); the host->device upload happens inside the
+    backend. All values are average milliseconds per frame:
 
-      - decode  : cv2 CPU decode alone
+      - decode  : CPU decode (incl. YUV->BGR conversion) alone
       - sr      : backend inference alone (H2D + model + D2H, as the player pays)
       - display : cv2 bicubic downscale to the display size alone
       - total   : decode + sr + display (the real display path)
     """
 
-    def __init__(self, checkpoint_path, name, video_path, runtype: Runtype, upscale_factor=2,
-                 warmup_runs=20, iterations=200):
-        super().__init__(checkpoint_path, name, video_path, upscale_factor, warmup_runs, iterations)
+    def __init__(self, checkpoint_path, video_path, runtype: Runtype, decoder: Decoder = "pyav",
+                 upscale_factor=2, warmup_runs=20, iterations=200):
+        super().__init__(checkpoint_path, video_path, upscale_factor, warmup_runs, iterations)
         self.runtype: Runtype = runtype
+        self.decoder: Decoder = decoder
 
     def evaluate(self):
         torch.cuda.empty_cache()
 
-        cap = cv2.VideoCapture(str(self.video_path))
-        if not cap.isOpened():
-            raise RuntimeError(f"cv2 could not open {self.video_path}")
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.runtype}")
+        decoder = open_cpu_decoder(self.video_path, self.decoder)
+        h, w, n = decoder.height, decoder.width, len(decoder)
+        io = VideoIO("bgr", "bgr")
+        print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.runtype}, {self.decoder} ({io.tag})")
 
         decision = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,))
         target_hw = decision.target_size
 
-        tag = f"{self.name}_{h}x{w}_{self.upscale_factor}x"
-        backend = _make_backend(self.runtype, self.checkpoint_path, tag, (h, w), self.upscale_factor)
+        backend = make_backend(self.runtype, self.checkpoint_path, (h, w), self.upscale_factor, io)
 
-        def read_next(_i=None):
-            ret, frame = cap.read()
-            if not ret:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                ret, frame = cap.read()
+        cursor = [0]
+
+        def read_next():
+            # Sequential decode; wrapping to frame 0 at the end is a (rare) seek.
+            if cursor[0] >= len(decoder):
+                cursor[0] = 0
+            frame = decoder.frame(cursor[0])
+            cursor[0] += 1
             return frame
 
         def downscale(out):
@@ -100,7 +82,7 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
 
             return self._summarize(totals)
         finally:
-            cap.release()
+            decoder.close()
             del backend
             gc.collect()
             torch.cuda.empty_cache()

@@ -1,24 +1,34 @@
 import time
 from collections import deque
+from pathlib import Path
+from typing import Optional, Tuple
 
 import glfw
 import torch
 
-from .base_cv2 import _BaseCv2Player, format_time
+from .base import _BasePlayer, format_time
+from .reader import _DecodeReader
 
 
-class _BaseGlPlayer(_BaseCv2Player):
+class _BaseGlPlayer(_BasePlayer):
     """
-    Shared glfw/OpenGL play loop for the GPU-display SR players. Reuses _BaseCv2Player (via a
-    concrete decode player as the second base) for NVDEC decode / background reader / audio /
-    seeking, and swaps the cv2 display loop for a glfw one that shows frames straight from GPU
-    memory and puts the FPS / position stats in the window title bar instead of drawing them onto
-    the frame (no CPU text-draw pass).
+    glfw/OpenGL display on top of _BasePlayer for the GPU-display SR players: shows frames straight
+    from GPU memory and puts the FPS / position stats in the window title bar instead of drawing
+    them onto the frame (no CPU text-draw pass). The GL surfaces take CUDA frames, so these players
+    always decode with NVDEC.
 
     Subclasses supply only the display surface and how a frame is shown: ``_gl_open`` (create the
     surface and register the key callback), ``_gl_infer`` (run SR on a new frame and upload it) and
     ``_gl_present`` (show the current frame with a title).
     """
+
+    def __init__(self, video_path, target_size: Optional[Tuple[int, int]] = None,
+                 enable_audio: bool = True, start_fullscreen: bool = True):
+        from ..decode.nvdec_decoder import NvDecoder
+
+        print(f"[videoplayer] Opening video {Path(video_path).name} (NVDEC) ...")
+        super().__init__(video_path, NvDecoder(str(video_path)), target_size=target_size,
+                         enable_audio=enable_audio, start_fullscreen=start_fullscreen)
 
     def _gl_ready(self) -> bool:
         """Whether the SR back-end is set up and playback can start."""
@@ -72,7 +82,7 @@ class _BaseGlPlayer(_BaseCv2Player):
         self._current_index = 0
         self._surface = self._gl_open(self._make_key_callback())
 
-        self._reader = self._make_reader()
+        self._reader = _DecodeReader(self.decoder)
         self._reader.start()
         if self.audio is not None:
             self.audio.start()
@@ -130,4 +140,5 @@ class _BaseGlPlayer(_BaseCv2Player):
         self._reader.join(timeout=1.0)
         if self.audio is not None:
             self.audio.stop()
+        self._release_source()
         self._surface.close()

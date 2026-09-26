@@ -32,3 +32,6 @@ class NvDecoder:
         """Decode frame `index` and return a (3,H,W) uint8 RGB CUDA tensor (a private copy)."""
         index = max(0, min(index, self.num_frames - 1))
         return torch.from_dlpack(self.decoder[index]).clone()
+
+    def close(self):
+        """Nothing to release explicitly; PyNvVideoCodec frees the decoder when it is collected."""

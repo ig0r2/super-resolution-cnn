@@ -31,14 +31,14 @@ from OpenGL import GL
 
 from videoplayer.scaling import choose_auto_scale
 from videoplayer.backends.gl_build import build_engine
-from videoplayer.decode.decoder import NvDecoder
+from videoplayer.decode.nvdec_decoder import NvDecoder
 from ._base import _BaseVideoPerfEvaluator
 
 
 class EvaluatorPerfVideoGL(_BaseVideoPerfEvaluator):
-    def __init__(self, checkpoint_path, name, video_path, upscale_factor=2,
+    def __init__(self, checkpoint_path, video_path, upscale_factor=2,
                  warmup_runs=20, iterations=200, chunk_size=8):
-        super().__init__(checkpoint_path, name, video_path, upscale_factor, warmup_runs, iterations)
+        super().__init__(checkpoint_path, video_path, upscale_factor, warmup_runs, iterations)
         self.chunk_size = chunk_size
 
     def evaluate(self):
