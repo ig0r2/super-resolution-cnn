@@ -41,8 +41,8 @@ STAGES = ("decode", "sr", "display", "total")
 
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[2, 3, 4] = 2
-    RUNTYPE: Runtype = "tensorrt-nvdec"
-    DECODER: Literal["pyav", "cv2"] = "pyav"  # CPU-decode runtypes only
+    RUNTYPE: Runtype = "ncnn-vulkan"
+    DECODER: Literal["pyav", "cv2"] = "cv2"  # CPU-decode runtypes only
 
     SKIP_EVALUATED = True
     WARMUP_RUNS = 50

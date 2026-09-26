@@ -40,16 +40,6 @@ def get_onnx_video(checkpoint_path, onnx_path, input_size, upscale_factor, io):
     return onnx_path
 
 
-def export_onnx_bare(model, path, input_hw):
-    """Eksportuje model u fp32 onnx.
-    Koristi se za ncnn (pnnx). Mora fp32 jer pnnx ne pravi fp16 slojeve ispravno.
-    pnnx svakako sam pretvori iz fp32 u fp16."""
-    model = model.eval().cpu().float()
-    dummy = torch.rand(1, 3, input_hw[0], input_hw[1])
-    torch.onnx.export(model, dummy, str(path), input_names=["input"],
-                      output_names=["output"], opset_version=17, dynamo=False)
-
-
 def export_onnx_video(wrapper, onnx_path, input_hw):
     """Eksportuje VideoWrapper u ONNX (FP16 model) sa statickim uint8 ulazom na GPU-u, ciji je
     oblik odredjen wrapper.io ((3,H,W) za rgb, (H,W,3) za bgr)."""

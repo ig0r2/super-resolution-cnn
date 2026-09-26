@@ -7,7 +7,8 @@ Every backend takes `model` (checkpoint name under checkpoints/ or a .pth path),
 size and the scale; the checkpoint path and the cache tag come from cache_paths.resolve_model.
 
 TensorRT / torch_tensorrt / onnxruntime run a VideoWrapper export, so the layout conversion and the
-BGR output happen inside the graph. ncnn runs the bare model and does its own pre/post-processing.
+BGR output happen inside the graph. ncnn runs the model with only *255/clamp appended (export_onnx_ncnn)
+and does the rest of the pre/post-processing itself.
 """
 
 import time
@@ -16,7 +17,7 @@ from typing import Literal
 import numpy as np
 import torch
 
-from .export import export_trt, export_onnx_bare, get_onnx_video, load_model
+from .export import export_trt, get_onnx_video, load_model
 from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
 from .wrappers import VideoIO
 from .. import cache_paths
@@ -161,11 +162,11 @@ class ONNXBackend:
 
 
 class NCNNBackend:
-    """ncnn-Vulkan backend (bare model, no wrapper; NCNNRunner does the BGR pre/post-processing).
+    """ncnn-Vulkan backend (model + *255/clamp, no VideoWrapper; NCNNRunner does the BGR pre/post-processing).
     Takes and returns BGR frames."""
 
     def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
-        from .export_ncnn import export_ncnn, NCNNRunner
+        from .export_ncnn import export_onnx_ncnn, export_ncnn, NCNNRunner
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
 
         _check_output(io)
@@ -174,15 +175,15 @@ class NCNNBackend:
         param_path, bin_path = cache_paths.ncnn_paths(tag)
         param_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # ncnn files first, otherwise convert from the bare .onnx, exporting that from the checkpoint
+        # ncnn files first, otherwise convert from the ncnn-source .onnx, exporting that from the checkpoint
         if not param_path.exists():
             onnx_path = cache_paths.onnx(tag)
             if not onnx_path.exists():
                 if not checkpoint_path.exists():
                     raise RuntimeError(f"No cached ONNX ({onnx_path.name}) and no checkpoint ({checkpoint_path.name})")
                 onnx_path.parent.mkdir(parents=True, exist_ok=True)
-                _log(f"Exporting bare ONNX ({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
-                export_onnx_bare(load_model(checkpoint_path, upscale_factor), onnx_path, input_size)
+                _log(f"Exporting ncnn-source ONNX ({input_size[0]}x{input_size[1]}) -> {onnx_path.name} ...")
+                export_onnx_ncnn(load_model(checkpoint_path, upscale_factor), onnx_path, input_size)
             _log(f"Converting ncnn from ONNX ({input_size[0]}x{input_size[1]}) -> {param_path.name} ...")
             t0 = time.perf_counter()
             export_ncnn(onnx_path, param_path.parent, tag, (input_size[0], input_size[1]))

@@ -14,7 +14,7 @@ built them, so the run players and the perf evaluators share the same files:
     exports/pt2_cv2/{tag}.pt2                 ... its torch_tensorrt module
     exports/onnx_nvdec/{tag}.onnx             rgb -> rgb wrapper (NVDEC + CUDA-GL display)
     exports/trt_nvdec/{tag}.engine            ... its TensorRT engine
-    exports/onnx/{tag}.onnx                   CHW RGB bare model (ncnn/pnnx source)
+    exports/onnx/{tag}.onnx                   CHW RGB model + *255/clamp (ncnn/pnnx source)
     exports/ncnn/{tag}.ncnn.param/bin         ncnn model
 
 bgr -> bgr and rgb -> rgb keep the directories they had before the VideoIO scheme, so engines
