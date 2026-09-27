@@ -46,7 +46,7 @@ RUNTYPE_LABELS = {
 
 # Faze (kratka oznaka -> deo imena kolone, spaja se sa "res": f"{res} {key}").
 STAGE_LABELS = {
-    "decode": "Dekodovanje",
+    "decode": "Dekodiranje",
     "sr": "SR",
     "display": "Prikaz",
 }
@@ -66,7 +66,9 @@ CONFIG_DEFAULTS = {
     # zajednickih modela svih ukljucenih backend-a)
     "stages": ["decode", "sr", "display"],  # faze i njihov redosled u baru
     "runtypes": None,  # None -> svi backend-i koji imaju taj model
-    # (redom iz RUNTYPE_LABELS); ili lista tacnih
+    # (redom iz RUNTYPE_LABELS); ili lista tacnih runtype-ova; ili dict
+    # {runtype: oznaka} - zadata oznaka zamenjuje onu iz RUNTYPE_LABELS
+    # (None -> oznaka iz RUNTYPE_LABELS)
     "out": None,  # None -> stages_<name>.png
     "legend_loc": "lower right",  # pozicija legende (matplotlib loc)
     "dpi": 140,
@@ -88,32 +90,46 @@ CONFIGS = [
     {
         "name": "prosek_decode",
         "model": "prosek",
-        "runtypes": ["tensorrt", "tensorrt-nvdec"]
+        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
     },
     {
         "name": "prosek_display",
         "model": "prosek",
-        "runtypes": ["tensorrt", "tensorrt-nvdec", "tensorrt-nvdec-gl"]
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
+                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
     {
         "name": "FastEDSR_2_32_decode",
         "model": "SR_FastEDSR_2_32",
-        "runtypes": ["tensorrt", "tensorrt-nvdec"]
+        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
     },
     {
         "name": "FastEDSR_2_32_display",
         "model": "SR_FastEDSR_2_32",
-        "runtypes": ["tensorrt", "tensorrt-nvdec", "tensorrt-nvdec-gl"]
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
+                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
+    },
+    {
+        "name": "FastEDSR_4_32_decode",
+        "model": "SR_FastEDSR_4_32",
+        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
+    },
+    {
+        "name": "FastEDSR_4_32_display",
+        "model": "SR_FastEDSR_4_32",
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
+                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
     {
         "name": "FastEDSR_4_128_decode",
         "model": "SR_FastEDSR_4_128",
-        "runtypes": ["tensorrt", "tensorrt-nvdec"]
+        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
     },
     {
         "name": "FastEDSR_4_128_display",
         "model": "SR_FastEDSR_4_128",
-        "runtypes": ["tensorrt", "tensorrt-nvdec", "tensorrt-nvdec-gl"]
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
+                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
 ]
 
@@ -140,8 +156,22 @@ def zf(value, spec) -> str:
     return format(value, spec).replace(".", ",")
 
 
-def label_for(rt):
+def label_for(rt, labels=None):
+    if labels and rt in labels:
+        return labels[rt]
     return RUNTYPE_LABELS.get(rt, rt)
+
+
+def normalize_runtypes(runtypes):
+    """Vrati (lista runtype-ova ili None, {runtype: oznaka}) iz cfg.runtypes.
+
+    Prihvata None, listu runtype-ova ili dict {runtype: oznaka}.
+    """
+    if not runtypes:
+        return None, {}
+    if isinstance(runtypes, dict):
+        return list(runtypes), {rt: lbl for rt, lbl in runtypes.items() if lbl}
+    return list(runtypes), {}
 
 
 def load_model(path, cols, cfg):
@@ -203,7 +233,7 @@ def load_model(path, cols, cfg):
     return order, data, n_models
 
 
-def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi):
+def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi, labels=None):
     """Stacked horizontalni bar: red = backend, segmenti = faze (ms)."""
     plt.rcParams.update({"font.size": 11, "axes.grid": True,
                          "grid.alpha": 0.25, "figure.dpi": dpi})
@@ -237,7 +267,7 @@ def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi):
         ax.text(total, y, f" {zf(total, '.2f')}", va="center", ha="left", fontsize=8.5)
 
     ax.set_yticks(ys)
-    ax.set_yticklabels([label_for(rt) for rt in runtypes])
+    ax.set_yticklabels([label_for(rt, labels) for rt in runtypes])
     ax.invert_yaxis()  # prvi backend na vrhu
     ax.set_xlabel("Vreme po frejmu (ms) - nize je bolje")
     ax.set_title(f"Faze obrade frejma - {title} @ {res}")
@@ -263,6 +293,7 @@ def run_config(cfg):
     if not results_path.exists():
         sys.exit(f"CSV ne postoji: {results_path}")
 
+    cfg.runtypes, labels = normalize_runtypes(cfg.runtypes)
     cols = [f"{cfg.res} {s}" for s in cfg.stages]
     runtypes, data, n_models = load_model(results_path, cols, cfg)
     if not runtypes:
@@ -273,7 +304,7 @@ def run_config(cfg):
     title = f"prosek ({n_models} modela)" if is_avg else cfg.model
 
     fig = plot(runtypes, data, cfg.stages, cols, title, cfg.res,
-               cfg.legend_loc, cfg.dpi)
+               cfg.legend_loc, cfg.dpi, labels)
 
     out_name = cfg.out or f"stages_{cfg.name}.png"
     out_path = get_results_path("analysis/stages") / out_name
@@ -283,12 +314,12 @@ def run_config(cfg):
 
     model_info = f"prosek/{n_models} modela" if is_avg else cfg.model
     print(f"Izvor: {results_path}  ({cfg.res}, model={model_info})")
-    print(f"Backend-ovi: {', '.join(label_for(rt) for rt in runtypes)}")
+    print(f"Backend-ovi: {', '.join(label_for(rt, labels) for rt in runtypes)}")
     for rt in runtypes:
         parts = "  ".join(f"{STAGE_LABELS.get(s, s)}={zf(data[rt][c], '.2f')}"
                           for s, c in zip(cfg.stages, cols))
         total = sum(data[rt][c] for c in cols)
-        print(f"  {label_for(rt):<18} {parts}   Ukupno={zf(total, '.2f')}ms")
+        print(f"  {label_for(rt, labels):<18} {parts}   Ukupno={zf(total, '.2f')}ms")
     print(f"Slika:  {out_path}")
 
 

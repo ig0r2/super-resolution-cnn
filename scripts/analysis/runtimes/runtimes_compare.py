@@ -66,9 +66,9 @@ CONFIG_DEFAULTS = {
     # (tim redom), npr. ["onnxruntime-tensorrt", "tensorrt"]
     "metrics": ["sr"],  # metrike (grupe na y-osi): decode/sr/display/total
     "group_by": "metric",  # "metric" -> grupe = metrike; "size" -> grupe = velicine
-    "size_bins": [         # koristi se samo kad je group_by == "size" (prva metrika)
-        ("Mali\nmodeli", 0, 100_000),          # params u [0, 100k)
-        ("Veliki\nmodeli", 100_000, None),     # params >= 100k (None = bez gornje granice)
+    "size_bins": [  # koristi se samo kad je group_by == "size" (prva metrika)
+        ("Mali\nmodeli", 0, 100_000),  # params u [0, 100k)
+        ("Veliki\nmodeli", 100_000, None),  # params >= 100k (None = bez gornje granice)
     ],
     "archs": None,  # zadrzi samo ove arhitekture (npr. ["EDSR"])
     "include": None,  # zadrzi samo modele cije ime sadrzi neku nisku
@@ -83,20 +83,17 @@ CONFIG_DEFAULTS = {
 
 CONFIGS = [
     {
-        "name": "sr",
-        "metrics": ["sr"],
-        "unit": "ms",
-    },
-    {
-        "name": "sr",
+        "name": "ort_sr",
         "metrics": ["sr"],
         "unit": "fps",
+        "runtypes": ["onnxruntime-cuda", "onnxruntime-directml", "onnxruntime-tensorrt"],
     },
     {
-        "name": "sr_by_size",
+        "name": "ort_sr_by_size",
         "metrics": ["sr"],
         "unit": "fps",
         "group_by": "size",
+        "runtypes": ["onnxruntime-cuda", "onnxruntime-directml", "onnxruntime-tensorrt"],
     },
     {
         "name": "ort_vs_trt",
@@ -130,11 +127,19 @@ CONFIGS = [
         "runtypes": ["onnxruntime-tensorrt", "tensorrt"],
     },
     {
-        "name": "ort_vs_trt_vs_ncnn",
+        "name": "ncnn",
         "metrics": ["sr"],
-        "unit": "ms",
-        "runtypes": ["onnxruntime-tensorrt", "tensorrt", "ncnn-vulkan"],
-        "legend_loc": "upper right"
+        "unit": "fps",
+        "runtypes": ["onnxruntime-directml", "ncnn-vulkan"],
+        "legend_loc": "upper left"
+    },
+    {
+        "name": "ncnn_by_size",
+        "metrics": ["sr"],
+        "unit": "fps",
+        "group_by": "size",
+        "runtypes": ["onnxruntime-directml", "ncnn-vulkan"],
+        "legend_loc": "lower right"
     },
     {
         "name": "ort_vs_trt_vs_ncnn",
