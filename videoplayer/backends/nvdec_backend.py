@@ -24,8 +24,8 @@ class TRTBackendNVDEC:
     def __init__(self, model, input_size, upscale_factor: int):
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
         io = VideoIO("rgb", "rgb_f16")
-        onnx_path = cache_paths.onnx_video(tag, io.tag)
-        engine_path = cache_paths.engine_video(tag, io.tag)
+        onnx_path = cache_paths.onnx("nvdec", tag)
+        engine_path = cache_paths.engine("nvdec", tag)
         engine_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prefer cached artifacts: a cached engine skips everything; otherwise build it from the

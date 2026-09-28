@@ -62,8 +62,8 @@ class TRTBackend:
 
     def __init__(self, model, input_size, upscale_factor: int):
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
-        onnx_path = cache_paths.onnx_video(tag, _IO.tag)
-        engine_path = cache_paths.engine_video(tag, _IO.tag)
+        onnx_path = cache_paths.onnx("cv2", tag)
+        engine_path = cache_paths.engine("cv2", tag)
         engine_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prefer cached artifacts: a cached engine skips everything; otherwise build it from the
@@ -100,7 +100,7 @@ class PT2Backend:
         import torch_tensorrt  # noqa: F401  (registers the ops needed to load the .pt2)
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
 
-        pt2_path = cache_paths.pt2_video(tag, _IO.tag)
+        pt2_path = cache_paths.pt2("cv2", tag)
         pt2_path.parent.mkdir(parents=True, exist_ok=True)
 
         # No ONNX step: torch_tensorrt compiles the torch model directly, so a cache miss needs the
@@ -143,7 +143,7 @@ class ONNXBackend:
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
         print(ort.get_available_providers())
 
-        onnx_path = get_onnx_video(checkpoint_path, cache_paths.onnx_video(tag, _IO.tag),
+        onnx_path = get_onnx_video(checkpoint_path, cache_paths.onnx("cv2", tag),
                                    input_size, upscale_factor, _IO)
 
         _log(f"Creating onnxruntime session (provider={provider}) ...")
@@ -169,7 +169,7 @@ class NCNNBackend:
 
         # ncnn files first, otherwise convert from the ncnn-source .onnx, exporting that from the checkpoint
         if not param_path.exists():
-            onnx_path = cache_paths.onnx(tag)
+            onnx_path = cache_paths.onnx("ncnn", tag)
             if not onnx_path.exists():
                 if not checkpoint_path.exists():
                     raise RuntimeError(f"No cached ONNX ({onnx_path.name}) and no checkpoint ({checkpoint_path.name})")

@@ -43,8 +43,9 @@ def get_onnx_video(checkpoint_path, onnx_path, input_size, upscale_factor, io):
 def export_onnx_video(wrapper, onnx_path, input_hw):
     """Eksportuje VideoWrapper u ONNX (FP16 model) sa statickim uint8 ulazom na GPU-u, ciji je
     oblik odredjen wrapper.io ((3,H,W) za rgb, (H,W,3) za bgr)."""
-    wrapper = wrapper.eval().cuda().half()
-    dummy = wrapper.io.dummy_input(input_hw[0], input_hw[1])
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    wrapper = wrapper.eval().to(device).half()
+    dummy = wrapper.io.dummy_input(input_hw[0], input_hw[1], device=device)
     try:
         torch.onnx.export(wrapper, dummy, str(onnx_path), input_names=["input"],
                           output_names=["output"], opset_version=17, dynamo=False)
@@ -53,7 +54,8 @@ def export_onnx_video(wrapper, onnx_path, input_hw):
         wrapper.cpu()
         del wrapper, dummy
         gc.collect()
-        torch.cuda.empty_cache()
+        if device == "cuda":
+            torch.cuda.empty_cache()
 
 
 def export_trt(wrapper, path, input_hw, use_fp32=False):
