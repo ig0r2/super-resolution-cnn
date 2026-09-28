@@ -23,12 +23,13 @@ class VideoPlayerNvdecGL(_BaseGlPlayer):
         return "rgb_f16" if self.target_size is not None else "rgb"
 
     def _downscale(self, out: torch.Tensor) -> torch.Tensor:
-        """SR output CUDA -> (3,Ht,Wt) uint8 RGB CUDA: (3,H*s,W*s) uint8 is used as is,
-        (1,3,H*s,W*s) fp16 is bicubic-downscaled to target_size first."""
+        """SR output CUDA -> (3,Ht,Wt) RGB CUDA for GLDisplay.upload: (3,H*s,W*s) uint8 is used
+        as is, (1,3,H*s,W*s) fp16 is bicubic-downscaled to target_size and clamped to [0,255].
+        The fp16 result is left uncast: upload() fuses the cast to uint8 into its layout copy."""
         if self.target_size is None:
             return out
         x = F.interpolate(out, size=self.target_size, mode="bicubic", align_corners=False)
-        return x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
+        return x.clamp_(0.0, 255.0).squeeze(0)
 
     def _gl_open(self, on_key):
         # Window starts at the display target if we have one, else the native frame size.

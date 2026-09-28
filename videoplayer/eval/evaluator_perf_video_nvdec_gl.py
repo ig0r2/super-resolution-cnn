@@ -1,4 +1,3 @@
-import torch
 import torch.nn.functional as F
 
 from .evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
@@ -36,9 +35,10 @@ class EvaluatorPerfVideoNVDECGL(EvaluatorPerfVideoNVDEC):
             self._disp = None
 
     def _display(self, out, target_hw):
-        # (1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale to (3,Ht,Wt) uint8 RGB (no BGR swap
-        # needed), then device->device copy into the GL texture (the zero-copy analog of the D2H copy).
+        # (1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale to (3,Ht,Wt) fp16 RGB clamped to
+        # [0,255] (no BGR swap needed), then upload() casts to uint8 in its layout copy and does the
+        # device->device copy into the GL texture (the zero-copy analog of the D2H copy). Same path
+        # as VideoPlayerNvdecGL._downscale.
         x = F.interpolate(out, size=target_hw, mode="bicubic", align_corners=False)
-        x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
-        self._disp.upload(x)
+        self._disp.upload(x.clamp_(0.0, 255.0).squeeze(0))
         return None
