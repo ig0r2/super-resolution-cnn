@@ -2,9 +2,11 @@
 Minimal OpenGL render-graph engine that executes the shader passes from shader_gen.
 
 Per frame:
-  1. the NVDEC frame (a (3,H,W) uint8 RGB CUDA tensor) is copied device->device into an
-     OpenGL input texture via CUDA<->GL interop (no host round-trip, same trick as
-     backends/gl_display.py);
+  1. the decoded LR frame is uploaded into an OpenGL input texture, either
+     - input="cuda": an NVDEC frame ((3,H,W) uint8 RGB CUDA tensor) is copied device->device via
+       CUDA<->GL interop (no host round-trip, same trick as backends/gl_display.py), or
+     - input="host": a CPU-decoded frame ((H,W,3) uint8 BGR numpy array, PyAV / cv2) is uploaded
+       with glTexSubImage2D. Needs no CUDA at all, so the engine then runs on any OpenGL 3.3 GPU;
   2. each Pass renders into its own offscreen texture (RGBA16F for features, RGBA8 for the
      final HR frame) at the model's exact resolution;
   3. the final HR texture is drawn to the window, letterboxed, or read back for validation.
@@ -13,15 +15,16 @@ Orientation convention (kept consistent end to end): image row 0 (top) is upload
 row 0, which GL samples at v=0 and the display shader draws at the top of the window.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 import glfw
 import numpy as np
 import torch
 from OpenGL import GL
-from cuda.bindings import runtime as rt
 
 from .shader_gen import INPUT, VERT_SRC, Pass
+
+InputKind = Literal["cuda", "host"]
 
 _DISPLAY_VERT = """#version 330 core
 const vec2 verts[4] = vec2[4](vec2(-1.0,-1.0), vec2(1.0,-1.0), vec2(-1.0,1.0), vec2(1.0,1.0));
@@ -40,7 +43,14 @@ void main() { color = texture(tex, uv); }
 """
 
 
+def _cuda_rt():
+    """CUDA runtime bindings, imported only for input="cuda" so the host path needs no CUDA."""
+    from cuda.bindings import runtime as rt
+    return rt
+
+
 def _cuda_check(err, msg: str = ""):
+    rt = _cuda_rt()
     if isinstance(err, tuple):
         err = err[0]
     if err != rt.cudaError_t.cudaSuccess:
@@ -52,8 +62,9 @@ def _cuda_check(err, msg: str = ""):
 class GLUpscaler:
     def __init__(self, passes: List[Pass], lr_h: int, lr_w: int, scale: int,
                  win_w: int, win_h: int, title: str = "SR Video (GL)",
-                 fullscreen: bool = False, visible: bool = True):
+                 fullscreen: bool = False, visible: bool = True, input: InputKind = "cuda"):
         self.passes = passes
+        self.input = input
         self.lr_h, self.lr_w, self.scale = lr_h, lr_w, scale
         self.hr_h, self.hr_w = lr_h * scale, lr_w * scale
 
@@ -84,13 +95,20 @@ class GLUpscaler:
 
         self._vao = GL.glGenVertexArrays(1)  # core profile requires a bound VAO for draws
 
-        # Input texture (LR frame) + CUDA registration; alpha kept 0 so the padded conv column is inert.
+        # Input texture (LR frame). Its alpha must read as 0 so the padded conv column is inert: a
+        # swizzle forces that, since a 3-channel host upload (GL_BGR) would fill alpha with 1.
         self._in_tex = self._new_texture(lr_h, lr_w, "rgba8")
-        err, self._in_res = rt.cudaGraphicsGLRegisterImage(
-            int(self._in_tex), int(GL.GL_TEXTURE_2D),
-            rt.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsWriteDiscard)
-        _cuda_check(err, "cudaGraphicsGLRegisterImage(input)")
-        self._in_rgba = torch.zeros((lr_h, lr_w, 4), dtype=torch.uint8, device="cuda")
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self._in_tex)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_A, GL.GL_ZERO)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        self._in_res = None
+        if input == "cuda":
+            rt = _cuda_rt()
+            err, self._in_res = rt.cudaGraphicsGLRegisterImage(
+                int(self._in_tex), int(GL.GL_TEXTURE_2D),
+                rt.cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsWriteDiscard)
+            _cuda_check(err, "cudaGraphicsGLRegisterImage(input)")
+            self._in_rgba = torch.zeros((lr_h, lr_w, 4), dtype=torch.uint8, device="cuda")
 
         self._textures: Dict[str, int] = {INPUT: self._in_tex}
         self._fbos: Dict[str, int] = {}
@@ -181,8 +199,24 @@ class GLUpscaler:
             GL.glUniform2f(loc, xy[0], xy[1])
 
     # -- per-frame -----------------------------------------------------------------------
-    def upload_input(self, frame_chw_uint8: torch.Tensor):
-        """Copy a (3,H,W) uint8 RGB CUDA tensor into the input GL texture, device->device."""
+    def upload_input(self, frame):
+        """Upload the LR frame into the input GL texture (see input= in __init__)."""
+        if self.input == "cuda":
+            self._upload_cuda(frame)
+        else:
+            self._upload_host(frame)
+
+    def _upload_host(self, frame_hwc_bgr: np.ndarray):
+        """(H,W,3) uint8 BGR numpy array -> input texture; GL_BGR does the channel swap."""
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self._in_tex)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # rows are W*3 bytes, not 4-byte aligned
+        GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, self.lr_w, self.lr_h, GL.GL_BGR,
+                           GL.GL_UNSIGNED_BYTE, np.ascontiguousarray(frame_hwc_bgr))
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+
+    def _upload_cuda(self, frame_chw_uint8: torch.Tensor):
+        """(3,H,W) uint8 RGB CUDA tensor -> input texture, device->device."""
+        rt = _cuda_rt()
         self._in_rgba[..., :3] = frame_chw_uint8.permute(1, 2, 0)
         _cuda_check(rt.cudaGraphicsMapResources(1, self._in_res, 0), "map(input)")
         err, array = rt.cudaGraphicsSubResourceGetMappedArray(self._in_res, 0, 0)
@@ -207,8 +241,8 @@ class GLUpscaler:
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         GL.glBindVertexArray(0)
 
-    def infer(self, frame_chw_uint8: torch.Tensor):
-        self.upload_input(frame_chw_uint8)
+    def infer(self, frame):
+        self.upload_input(frame)
         self.run_passes()
 
     def draw_final(self):
@@ -273,7 +307,7 @@ class GLUpscaler:
 
     def close(self):
         if self._in_res is not None:
-            rt.cudaGraphicsUnregisterResource(self._in_res)
+            _cuda_rt().cudaGraphicsUnregisterResource(self._in_res)
             self._in_res = None
         try:
             glfw.destroy_window(self.window)

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Tuple
 
 from utils.checkpoints import load_model_from_checkpoint
-from .gl_engine import GLUpscaler
+from .gl_engine import GLUpscaler, InputKind
 from .shader_gen import build_passes
 
 SUPPORTED = "SR_FastEDSR_Multi"
@@ -18,7 +18,8 @@ SUPPORTED = "SR_FastEDSR_Multi"
 def build_engine(checkpoint_path, scale: int, lr_h: int, lr_w: int,
                  win_w: int, win_h: int, title: str = "SR Video (GL)",
                  fullscreen: bool = False, visible: bool = True,
-                 chunk_size: int = 8) -> Tuple[GLUpscaler, dict]:
+                 chunk_size: int = 8, input: InputKind = "cuda") -> Tuple[GLUpscaler, dict]:
+    """input="cuda" takes NVDEC CUDA frames, input="host" CPU-decoded BGR numpy frames (no CUDA)."""
     model, cfg = load_model_from_checkpoint(Path(checkpoint_path), "cpu")
     if cfg["name"] != SUPPORTED:
         raise RuntimeError(f"GL backend only supports {SUPPORTED}, got {cfg['name']}")
@@ -28,6 +29,6 @@ def build_engine(checkpoint_path, scale: int, lr_h: int, lr_w: int,
     passes = build_passes(state_np, num_blocks, nf, scale, chunk_size=chunk_size)
 
     engine = GLUpscaler(passes, lr_h, lr_w, scale, win_w=win_w, win_h=win_h,
-                        title=title, fullscreen=fullscreen, visible=visible)
+                        title=title, fullscreen=fullscreen, visible=visible, input=input)
     meta = {"num_blocks": num_blocks, "nf": nf, "num_passes": len(passes)}
     return engine, meta

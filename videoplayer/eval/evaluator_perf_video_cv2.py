@@ -5,7 +5,7 @@ import cv2
 import torch
 
 from videoplayer.backends.cv2_backends import Runtype, make_backend
-from videoplayer.players.player_cv2 import Decoder, open_cpu_decoder
+from videoplayer.decode import CpuDecoder, open_decoder
 from videoplayer.scaling import choose_auto_scale
 from ._base import _BaseVideoPerfEvaluator
 
@@ -26,16 +26,16 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
       - total   : decode + sr + display (the real display path)
     """
 
-    def __init__(self, checkpoint_path, video_path, runtype: Runtype, decoder: Decoder = "pyav",
+    def __init__(self, checkpoint_path, video_path, runtype: Runtype, decoder: CpuDecoder = "pyav",
                  upscale_factor=2, warmup_runs=20, iterations=200):
         super().__init__(checkpoint_path, video_path, upscale_factor, warmup_runs, iterations)
         self.runtype: Runtype = runtype
-        self.decoder: Decoder = decoder
+        self.decoder: CpuDecoder = decoder
 
     def evaluate(self):
         torch.cuda.empty_cache()
 
-        decoder = open_cpu_decoder(self.video_path, self.decoder)
+        decoder = open_decoder(self.video_path, self.decoder)
         h, w, n = decoder.height, decoder.width, len(decoder)
         print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.runtype}, {self.decoder}")
 

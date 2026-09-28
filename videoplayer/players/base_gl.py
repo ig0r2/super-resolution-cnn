@@ -7,6 +7,7 @@ import glfw
 import torch
 
 from .base import _BasePlayer, format_time
+from ..decode import Decoder, open_decoder
 from ..decode.reader import _DecodeReader
 
 
@@ -14,20 +15,18 @@ class _BaseGlPlayer(_BasePlayer):
     """
     glfw/OpenGL display on top of _BasePlayer for the GPU-display SR players: shows frames straight
     from GPU memory and puts the FPS / position stats in the window title bar instead of drawing
-    them onto the frame (no CPU text-draw pass). The GL surfaces take CUDA frames, so these players
-    always decode with NVDEC.
+    them onto the frame (no CPU text-draw pass). Decodes with NVDEC by default; a subclass whose
+    surface also takes host frames can pass decoder="pyav" / "cv2".
 
     Subclasses supply only the display surface and how a frame is shown: ``_gl_open`` (create the
     surface and register the key callback), ``_gl_infer`` (run SR on a new frame and upload it) and
-    ``_gl_present`` (show the current frame with a title).
+    ``_gl_present`` (show the current frame with a title); ``_gl_sync`` if the SR work isn't on CUDA.
     """
 
-    def __init__(self, video_path, target_size: Optional[Tuple[int, int]] = None,
+    def __init__(self, video_path, decoder: Decoder = "nvdec", target_size: Optional[Tuple[int, int]] = None,
                  enable_audio: bool = True, start_fullscreen: bool = True):
-        from ..decode.decoder_nvdec import NvDecoder
-
-        print(f"[videoplayer] Opening video {Path(video_path).name} (NVDEC) ...")
-        super().__init__(video_path, NvDecoder(str(video_path)), target_size=target_size,
+        print(f"[videoplayer] Opening video {Path(video_path).name} ({decoder}) ...")
+        super().__init__(video_path, open_decoder(video_path, decoder), target_size=target_size,
                          enable_audio=enable_audio, start_fullscreen=start_fullscreen)
 
     def _gl_ready(self) -> bool:
@@ -45,6 +44,10 @@ class _BaseGlPlayer(_BasePlayer):
     def _gl_present(self, title: str, have_frame: bool):
         """Present the current frame (if any) with ``title`` in the window bar."""
         raise NotImplementedError
+
+    def _gl_sync(self):
+        """Wait for the SR work of ``_gl_infer`` to finish, so the per-frame timing is real."""
+        torch.cuda.synchronize()
 
     # --- shared loop -----------------------------------------------------------------------------
 
@@ -75,8 +78,8 @@ class _BaseGlPlayer(_BasePlayer):
     def play(self):
         if not self._gl_ready():
             return
-
         print(f"[videoplayer] Running config: {self.config_desc}")
+        print("[videoplayer] Starting playback.")
         self._print_controls()
 
         self._current_index = 0
@@ -108,7 +111,7 @@ class _BaseGlPlayer(_BasePlayer):
             if frame_counter != last_frame_counter:
                 t0 = time.perf_counter()
                 self._gl_infer(frame)
-                torch.cuda.synchronize()  # so the timing reflects real GPU work, not just launch
+                self._gl_sync()  # so the timing reflects real GPU work, not just launch
                 frame_times.append((time.perf_counter() - t0) * 1000)
                 last_frame_counter = frame_counter
                 have_frame = True

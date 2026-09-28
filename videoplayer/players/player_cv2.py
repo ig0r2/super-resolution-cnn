@@ -1,23 +1,11 @@
 from pathlib import Path
-from typing import Literal, Optional, Tuple
+from typing import Optional, Tuple
 
 import cv2
 
 from .base_cv2 import _BaseCv2Player
 from ..backends.cv2_backends import Runtype, make_backend
-
-Decoder = Literal["pyav", "cv2"]
-
-
-def open_cpu_decoder(video_path, decoder: Decoder):
-    """PyAVDecoder or CV2Decoder (both give (H,W,3) BGR frames)"""
-    if decoder == "pyav":
-        from ..decode.decoder_pyav import PyAVDecoder
-        return PyAVDecoder(str(video_path))
-    if decoder == "cv2":
-        from ..decode.decoder_cv2 import CV2Decoder
-        return CV2Decoder(str(video_path))
-    raise ValueError(f"Unknown decoder {decoder!r} (expected 'pyav' or 'cv2')")
+from ..decode import CpuDecoder, open_decoder
 
 
 class VideoPlayerCV2(_BaseCv2Player):
@@ -36,12 +24,12 @@ class VideoPlayerCV2(_BaseCv2Player):
     thread at real-time pace, so a slow SR step skips frames instead of slowing playback.
     """
 
-    def __init__(self, video_path, model, runtype: Runtype = "tensorrt", decoder: Decoder = "pyav",
+    def __init__(self, video_path, model, runtype: Runtype = "tensorrt", decoder: CpuDecoder = "pyav",
                  candidate_scales=(2, 3, 4), target_size: Optional[Tuple[int, int]] = None,
                  enable_audio: bool = True, start_fullscreen: bool = True):
         print(f"[videoplayer] Opening video {Path(video_path).name} ({decoder}) ...")
         self.config_desc = f"{decoder} decode + {runtype} SR + cv2 display"
-        super().__init__(video_path, open_cpu_decoder(video_path, decoder),
+        super().__init__(video_path, open_decoder(video_path, decoder),
                          target_size=target_size, enable_audio=enable_audio, start_fullscreen=start_fullscreen)
 
         self.scale = self.configure_scale(candidate_scales)
