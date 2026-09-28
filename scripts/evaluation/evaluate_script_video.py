@@ -16,11 +16,11 @@ from videoplayer.eval.evaluator_perf_video_nvdec import EvaluatorPerfVideoNVDEC
 from videoplayer.eval.evaluator_perf_video_nvdec_gl import EvaluatorPerfVideoNVDECGL
 from videoplayer.eval.evaluator_perf_video_gl import EvaluatorPerfVideoGL
 
-# CPU decode (players/cv2_player.py):                    "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
+# CPU decode (players/player_cv2.py):                    "tensorrt" / "tensorrt-pt2" / "onnxruntime-*" / "ncnn-vulkan"
 #   with DECODER "cv2" (cv2.VideoCapture) or "pyav" (PyAV). cv2 rows keep the plain runtype name (continuing the
 #   older rows); PyAV rows are recorded as "<runtype>-pyav" (e.g. "tensorrt-pyav").
-# GPU decode (players/nvdec.py, NVDEC):                  "tensorrt-nvdec" (D2H->cv2) / "tensorrt-nvdec-gl" (zero-copy CUDA-GL)
-# Pure OpenGL (players/gl.py, NVDEC decode):             "opengl" (model compiled to GLSL shaders, no ML runtime)
+# GPU decode (players/player_nvdec.py, NVDEC):           "tensorrt-nvdec" (D2H->cv2) / "tensorrt-nvdec-gl" (zero-copy CUDA-GL)
+# Pure OpenGL (players/player_gl.py, NVDEC decode):      "opengl" (model compiled to GLSL shaders, no ML runtime)
 # "tensorrt-nvdec" and "tensorrt-nvdec-gl" differ only in the 'display'/'total' stage; decode/sr are identical.
 # "opengl" supports only SR_FastEDSR_Multi checkpoints; other architectures are recorded blank.
 # "tensorrt-pt2" is the torch_tensorrt .pt2 path: use it for large models where "tensorrt  engine build OOMs

@@ -5,15 +5,14 @@ import cv2
 import torch
 
 from videoplayer.backends.cv2_backends import Runtype, make_backend
-from videoplayer.backends.wrappers import VideoIO
-from videoplayer.players.cv2_player import Decoder, open_cpu_decoder
+from videoplayer.players.player_cv2 import Decoder, open_cpu_decoder
 from videoplayer.scaling import choose_auto_scale
 from ._base import _BaseVideoPerfEvaluator
 
 
 class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
     """
-    Speed evaluation for the CPU-decode SR pipeline with cv2 display (players/cv2_player.py),
+    Speed evaluation for the CPU-decode SR pipeline with cv2 display (players/player_cv2.py),
     supporting the tensorrt, tensorrt-pt2, onnxruntime-* and ncnn-vulkan backends. The CPU-decode
     counterpart of eval/evaluator_perf_video_nvdec.py's NVDEC evaluator.
 
@@ -38,13 +37,12 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
 
         decoder = open_cpu_decoder(self.video_path, self.decoder)
         h, w, n = decoder.height, decoder.width, len(decoder)
-        io = VideoIO("bgr", "bgr")
-        print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.runtype}, {self.decoder} ({io.tag})")
+        print(f"Video {self.video_path.name}: {w}x{h}, {n} frames, {self.runtype}, {self.decoder}")
 
         decision = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,))
         target_hw = decision.target_size
 
-        backend = make_backend(self.runtype, self.checkpoint_path, (h, w), self.upscale_factor, io)
+        backend = make_backend(self.runtype, self.checkpoint_path, (h, w), self.upscale_factor)
 
         cursor = [0]
 

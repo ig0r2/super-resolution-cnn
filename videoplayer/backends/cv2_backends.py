@@ -1,5 +1,5 @@
 """
-SR backends for the cv2-display player (players/cv2_player.py): each is callable on the decoder's
+SR backends for the cv2-display player (players/player_cv2.py): each is callable on the decoder's
 (H,W,3) uint8 BGR numpy frame on the host (PyAV or cv2) and returns a BGR uint8 numpy frame
 (H*s,W*s,3) ready for cv2.
 
@@ -22,19 +22,17 @@ from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
 from .wrappers import VideoIO
 from .. import cache_paths
 
-
 Runtype = Literal["tensorrt", "tensorrt-pt2", "ncnn-vulkan",
-                  "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
-                  "onnxruntime-directml", "onnxruntime-cpu"]
+"onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",
+"onnxruntime-directml", "onnxruntime-cpu"]
 
 
 def _log(msg: str):
     print(f"[videoplayer] {msg}")
 
 
-def _check_output(io: VideoIO):
-    if io.output != "bgr":
-        raise ValueError(f"cv2-display backends need a VideoIO with output='bgr', got {io.output!r}")
+# Both CPU decoders give (H,W,3) BGR frames and cv2 shows BGR, so every wrapped export is bgr -> bgr.
+_IO = VideoIO("bgr", "bgr")
 
 
 class _PinnedIO:
@@ -60,21 +58,21 @@ class _PinnedIO:
 
 
 class TRTBackend:
-    """Raw TensorRT engine backend built from the `io` VideoWrapper ONNX."""
+    """Raw TensorRT engine backend built from the bgr -> bgr VideoWrapper ONNX."""
 
-    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
+    def __init__(self, model, input_size, upscale_factor: int):
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
-        _check_output(io)
-        onnx_path = cache_paths.onnx_video(tag, io.tag)
-        engine_path = cache_paths.engine_video(tag, io.tag)
+        onnx_path = cache_paths.onnx_video(tag, _IO.tag)
+        engine_path = cache_paths.engine_video(tag, _IO.tag)
         engine_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prefer cached artifacts: a cached engine skips everything; otherwise build it from the
         # ONNX, exporting that from the checkpoint only if it isn't cached either.
         if not engine_path.exists():
-            get_onnx_video(checkpoint_path, onnx_path, input_size, upscale_factor, io)
+            get_onnx_video(checkpoint_path, onnx_path, input_size, upscale_factor, _IO)
 
-        _log(f"Building/loading TensorRT engine {engine_path.name} (first run for this size/scale can take a while) ...")
+        _log(
+            f"Building/loading TensorRT engine {engine_path.name} (first run for this size/scale can take a while) ...")
         t0 = time.perf_counter()
         engine = get_raw_trt_engine(onnx_path, engine_path)
         _log(f"TensorRT engine ready in {time.perf_counter() - t0:.1f}s")
@@ -87,7 +85,7 @@ class TRTBackend:
 
 
 class PT2Backend:
-    """torch_tensorrt (.pt2) backend of the `io` VideoWrapper.
+    """torch_tensorrt (.pt2) backend of the bgr -> bgr VideoWrapper.
 
     Unlike TRTBackend, which builds a raw TensorRT *engine* from ONNX, this compiles the model
     with torch_tensorrt and serialises a .pt2. It's the safer choice for LARGE models: building a
@@ -98,12 +96,11 @@ class PT2Backend:
     small/medium models the raw engine (TRTBackend) is a bit faster, so prefer it when it fits.
     """
 
-    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
+    def __init__(self, model, input_size, upscale_factor: int):
         import torch_tensorrt  # noqa: F401  (registers the ops needed to load the .pt2)
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
 
-        _check_output(io)
-        pt2_path = cache_paths.pt2_video(tag, io.tag)
+        pt2_path = cache_paths.pt2_video(tag, _IO.tag)
         pt2_path.parent.mkdir(parents=True, exist_ok=True)
 
         # No ONNX step: torch_tensorrt compiles the torch model directly, so a cache miss needs the
@@ -116,7 +113,7 @@ class PT2Backend:
             model.half()
             _log(f"Compiling torch_tensorrt .pt2 ({input_size[0]}x{input_size[1]}) -> {pt2_path.name} ...")
             t0 = time.perf_counter()
-            export_trt(io.wrap(model), pt2_path, (input_size[0], input_size[1]))
+            export_trt(_IO.wrap(model), pt2_path, (input_size[0], input_size[1]))
             _log(f".pt2 compile done in {time.perf_counter() - t0:.1f}s")
         else:
             _log(f"Reusing cached .pt2 model {pt2_path.name}")
@@ -131,7 +128,7 @@ class PT2Backend:
 
 
 class ONNXBackend:
-    """onnxruntime backend of the `io` VideoWrapper ONNX."""
+    """onnxruntime backend of the bgr -> bgr VideoWrapper ONNX."""
 
     PROVIDER_MAP = {
         "cuda": ["CUDAExecutionProvider", "CPUExecutionProvider"],
@@ -141,15 +138,13 @@ class ONNXBackend:
         "cpu": ["CPUExecutionProvider"],
     }
 
-    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO, provider: str = "cuda"):
+    def __init__(self, model, input_size, upscale_factor: int, provider: str = "cuda"):
         import onnxruntime as ort
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
-
-        _check_output(io)
         print(ort.get_available_providers())
 
-        onnx_path = get_onnx_video(checkpoint_path, cache_paths.onnx_video(tag, io.tag),
-                                   input_size, upscale_factor, io)
+        onnx_path = get_onnx_video(checkpoint_path, cache_paths.onnx_video(tag, _IO.tag),
+                                   input_size, upscale_factor, _IO)
 
         _log(f"Creating onnxruntime session (provider={provider}) ...")
         t0 = time.perf_counter()
@@ -165,13 +160,10 @@ class NCNNBackend:
     """ncnn-Vulkan backend (model + *255/clamp, no VideoWrapper; NCNNRunner does the BGR pre/post-processing).
     Takes and returns BGR frames."""
 
-    def __init__(self, model, input_size, upscale_factor: int, io: VideoIO):
+    def __init__(self, model, input_size, upscale_factor: int):
         from .export_ncnn import export_onnx_ncnn, export_ncnn, NCNNRunner
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
 
-        _check_output(io)
-        if io.input != "bgr":
-            raise ValueError(f"ncnn-vulkan takes BGR (H,W,3) frames, got input layout {io.input!r}")
         param_path, bin_path = cache_paths.ncnn_paths(tag)
         param_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -198,20 +190,20 @@ class NCNNBackend:
         return self.runner(frame)
 
 
-def make_backend(runtype: Runtype, model, input_size, upscale_factor: int, io: VideoIO):
+def make_backend(runtype: Runtype, model, input_size, upscale_factor: int):
     """Build the cv2-display backend for a runtype; "onnxruntime-<provider>" picks the ORT provider."""
     if runtype == "tensorrt":
         _log("Setting up TensorRT backend")
-        return TRTBackend(model, input_size, upscale_factor, io)
+        return TRTBackend(model, input_size, upscale_factor)
     if runtype == "tensorrt-pt2":
         # torch_tensorrt .pt2: safer for large models where the raw engine build OOMs (see PT2Backend).
         _log("Setting up torch_tensorrt (.pt2) backend")
-        return PT2Backend(model, input_size, upscale_factor, io)
+        return PT2Backend(model, input_size, upscale_factor)
     if runtype == "ncnn-vulkan":
         _log("Preparing ncnn-Vulkan backend (conversion on first run can take a while) ...")
-        return NCNNBackend(model, input_size, upscale_factor, io)
+        return NCNNBackend(model, input_size, upscale_factor)
     if runtype.startswith("onnxruntime-"):
         provider = runtype.split("-", 1)[1]  # cuda / tensorrt / openvino / directml / cpu
         _log(f"Preparing onnxruntime backend (provider={provider}; export on first run can take a while) ...")
-        return ONNXBackend(model, input_size, upscale_factor, io, provider=provider)
+        return ONNXBackend(model, input_size, upscale_factor, provider=provider)
     raise ValueError(f"Unknown runtype: {runtype}")

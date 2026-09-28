@@ -5,14 +5,14 @@ import torch
 import torch.nn.functional as F
 
 from videoplayer.scaling import choose_auto_scale
-from videoplayer.decode.nvdec_decoder import NvDecoder
+from videoplayer.decode.decoder_nvdec import NvDecoder
 from videoplayer.backends.nvdec_backend import TRTBackendNVDEC
 from ._base import _BaseVideoPerfEvaluator
 
 
 class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
     """
-    Speed evaluation for the NVDEC-decode SR pipeline (players/nvdec.py), the NVDEC counterpart
+    Speed evaluation for the NVDEC-decode SR pipeline (players/player_nvdec.py), the NVDEC counterpart
     of eval/evaluator_perf_video_cv2.py's EvaluatorPerfVideoCV2.
 
     This decodes real frames on the GPU via NVDEC. A single 'total' loop of `iterations` runs the
@@ -32,10 +32,6 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
     Uses TRTBackendNVDEC, so it shares the engine cache with run_trt_nvdec.py.
     """
 
-    # Engine output layout: fp16 RGB NCHW, which the display step downscales directly (both
-    # displays always downscale here, see target_hw).
-    sr_output = "rgb_f16"
-
     def evaluate(self):
         torch.cuda.empty_cache()
 
@@ -48,7 +44,7 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
         decision = choose_auto_scale((h, w), self._ref_screen, (self.upscale_factor,))
         target_hw = decision.target_size
 
-        runner = TRTBackendNVDEC(self.checkpoint_path, (h, w), self.upscale_factor, output=self.sr_output)
+        runner = TRTBackendNVDEC(self.checkpoint_path, (h, w), self.upscale_factor)
 
         def total_step(i):
             self._display(runner(decoder.frame(i % n)), target_hw)
@@ -94,7 +90,7 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
     def _display(self, out, target_hw):
         """(1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale -> BGR + device->host copy to numpy.
 
-        This is the real cv2 display path (VideoPlayerNvdecCV2._to_display): the returned numpy
+        This is the real cv2 display path (VideoPlayerNvdecCV2._produce_display): the returned numpy
         array is what cv2.imshow would show, and .cpu() forces the copy to complete so the
         'display' timing includes the D2H transfer.
         """

@@ -5,8 +5,8 @@ from typing import Literal
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from utils.path import get_project_root
-from videoplayer.backends.cv2_backends import Runtype, make_backend
-from videoplayer.players.cv2_player import VideoPlayerCV2
+from videoplayer.backends.cv2_backends import Runtype
+from videoplayer.players.player_cv2 import VideoPlayerCV2
 
 MODEL = "multiscale/SR_FastEDSR_4_128"
 VIDEO_PATH = get_project_root("videoinput/frantic.mp4")
@@ -19,17 +19,11 @@ DECODER: Literal["pyav", "cv2"] = "pyav"
 ################################################
 
 
-player = VideoPlayerCV2(VIDEO_PATH, decoder=DECODER)
-scale = player.configure_scale(CANDIDATE_SCALES)
-frame_size = player.size
-io = player.video_io()
-
-print(f"[videoplayer] Wrapper I/O: {io.tag}")
 try:
-    backend = make_backend(BACKEND, MODEL, frame_size, scale, io)
+    player = VideoPlayerCV2(VIDEO_PATH, MODEL, runtype=BACKEND, decoder=DECODER,
+                            candidate_scales=CANDIDATE_SCALES)
 except (RuntimeError, ValueError) as e:
     print(e)
     sys.exit(1)
 
-print("[videoplayer] Starting playback.")
-player.set_upscale_fn(backend).play()
+player.play()

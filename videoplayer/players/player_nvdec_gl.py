@@ -18,18 +18,14 @@ from ..backends.gl_display import GLDisplay
 class VideoPlayerNvdecGL(_BaseGlPlayer):
     config_desc = "NVDEC decode + TensorRT SR + CUDA-GL zero-copy display"
 
-    def sr_output(self):
-        """Engine output layout for TRTBackendNVDEC (call after configure_scale)."""
-        return "rgb_f16" if self.target_size is not None else "rgb"
-
     def _downscale(self, out: torch.Tensor) -> torch.Tensor:
-        """SR output CUDA -> (3,Ht,Wt) RGB CUDA for GLDisplay.upload: (3,H*s,W*s) uint8 is used
-        as is, (1,3,H*s,W*s) fp16 is bicubic-downscaled to target_size and clamped to [0,255].
+        """SR output (1,3,H*s,W*s) fp16 RGB [0,255] CUDA -> (3,Ht,Wt) RGB CUDA for GLDisplay.upload,
+        bicubic-downscaled to target_size and clamped to [0,255] if one is set.
         The fp16 result is left uncast: upload() fuses the cast to uint8 into its layout copy."""
-        if self.target_size is None:
-            return out
-        x = F.interpolate(out, size=self.target_size, mode="bicubic", align_corners=False)
-        return x.clamp_(0.0, 255.0).squeeze(0)
+        if self.target_size is not None:
+            out = F.interpolate(out, size=self.target_size, mode="bicubic", align_corners=False)
+            out.clamp_(0.0, 255.0)
+        return out.squeeze(0)
 
     def _gl_open(self, on_key):
         # Window starts at the display target if we have one, else the native frame size.

@@ -4,7 +4,7 @@ import torch
 
 from .export import get_onnx_video
 from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
-from .wrappers import OutputLayout, VideoIO
+from .wrappers import VideoIO
 from .. import cache_paths
 
 
@@ -16,15 +16,14 @@ class TRTBackendNVDEC:
     """Raw TensorRT SR backend for the NVDEC-decode pipeline.
 
     Callable on a (3,H,W) uint8 RGB CUDA tensor (as produced by NvDecoder); everything stays on the
-    GPU. The engine graph (a VideoWrapper) does the normalize / model / denormalize and the output
-    layout: output="bgr" -> (H*s,W*s,3) uint8 BGR for the cv2 display, output="rgb" ->
-    (3,H*s,W*s) uint8 RGB for the CUDA-GL display, output="rgb_f16" -> (1,3,H*s,W*s) fp16 RGB
-    [0,255] for a GPU downscale before either display.
+    GPU. The engine graph (a VideoWrapper) does the normalize / model / denormalize and returns a
+    (1,3,H*s,W*s) fp16 RGB [0,255] tensor; both NVDEC players (cv2 and CUDA-GL display) downscale /
+    cast it on the GPU themselves, so one engine serves both.
     """
 
-    def __init__(self, model, input_size, upscale_factor: int, output: OutputLayout):
+    def __init__(self, model, input_size, upscale_factor: int):
         checkpoint_path, tag = cache_paths.resolve_model(model, input_size, upscale_factor)
-        io = VideoIO("rgb", output)
+        io = VideoIO("rgb", "rgb_f16")
         onnx_path = cache_paths.onnx_video(tag, io.tag)
         engine_path = cache_paths.engine_video(tag, io.tag)
         engine_path.parent.mkdir(parents=True, exist_ok=True)

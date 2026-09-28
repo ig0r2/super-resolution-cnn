@@ -1,5 +1,5 @@
 """
-Speed evaluation for the pure-OpenGL SR pipeline (players/gl.py), runtype "opengl".
+Speed evaluation for the pure-OpenGL SR pipeline (players/player_gl.py), runtype "opengl".
 
 Same four-stage breakdown and reporting as EvaluatorPerfVideoNVDEC (one 'total' loop that times
 each part in-line, average milliseconds per frame), so its CSV row lines up column-for-column with
@@ -31,7 +31,7 @@ from OpenGL import GL
 
 from videoplayer.scaling import choose_auto_scale
 from videoplayer.backends.gl_build import build_engine
-from videoplayer.decode.nvdec_decoder import NvDecoder
+from videoplayer.decode.decoder_nvdec import NvDecoder
 from ._base import _BaseVideoPerfEvaluator
 
 

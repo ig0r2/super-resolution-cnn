@@ -7,7 +7,7 @@ import glfw
 import torch
 
 from .base import _BasePlayer, format_time
-from .reader import _DecodeReader
+from ..decode.reader import _DecodeReader
 
 
 class _BaseGlPlayer(_BasePlayer):
@@ -24,7 +24,7 @@ class _BaseGlPlayer(_BasePlayer):
 
     def __init__(self, video_path, target_size: Optional[Tuple[int, int]] = None,
                  enable_audio: bool = True, start_fullscreen: bool = True):
-        from ..decode.nvdec_decoder import NvDecoder
+        from ..decode.decoder_nvdec import NvDecoder
 
         print(f"[videoplayer] Opening video {Path(video_path).name} (NVDEC) ...")
         super().__init__(video_path, NvDecoder(str(video_path)), target_size=target_size,

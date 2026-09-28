@@ -1,24 +1,19 @@
 """Single source of truth for where exported SR artifacts are cached.
 
 Artifacts are keyed by `tag` (model_size_scale) plus, for the video-wrapped exports, the wrapper's
-I/O (`VideoIO.tag`: "rgb_bgr", "rgb_rgb_f16", "bgr_bgr" or "rgb_rgb"), and grouped by kind, NOT by which script
+I/O (`VideoIO.tag`: "bgr_bgr" or "rgb_rgb_f16"), and grouped by kind, NOT by which script
 built them, so the run players and the perf evaluators share the same files:
 
-    exports/onnx_video/{tag}__rgb_bgr.onnx    rgb -> bgr wrapper ONNX (NVDEC + cv2 display)
-    exports/trt_video/{tag}__rgb_bgr.engine   its TensorRT engine
-    exports/pt2_video/{tag}__rgb_bgr.pt2      its torch_tensorrt module (large-model fallback)
-    exports/onnx_video/{tag}__rgb_rgb_f16.onnx rgb -> fp16 NCHW RGB (NVDEC, downscaled display)
-    exports/trt_video/{tag}__rgb_rgb_f16.engine its TensorRT engine
-    exports/onnx_cv2/{tag}.onnx               bgr -> bgr wrapper (PyAV / cv2 decode + cv2 display)
-    exports/trt_cv2/{tag}.engine              ... its TensorRT engine
-    exports/pt2_cv2/{tag}.pt2                 ... its torch_tensorrt module
-    exports/onnx_nvdec/{tag}.onnx             rgb -> rgb wrapper (NVDEC + CUDA-GL display)
-    exports/trt_nvdec/{tag}.engine            ... its TensorRT engine
-    exports/onnx/{tag}.onnx                   CHW RGB model + *255/clamp (ncnn/pnnx source)
-    exports/ncnn/{tag}.ncnn.param/bin         ncnn model
+    exports/onnx_cv2/{tag}.onnx                  bgr -> bgr wrapper (PyAV / cv2 decode + cv2 display)
+    exports/trt_cv2/{tag}.engine                 ... its TensorRT engine
+    exports/pt2_cv2/{tag}.pt2                    ... its torch_tensorrt module (large-model fallback)
+    exports/onnx_video/{tag}__rgb_rgb_f16.onnx   rgb -> fp16 NCHW RGB wrapper (NVDEC, both displays)
+    exports/trt_video/{tag}__rgb_rgb_f16.engine  ... its TensorRT engine
+    exports/onnx/{tag}.onnx                      CHW RGB model + *255/clamp (ncnn/pnnx source)
+    exports/ncnn/{tag}.ncnn.param/bin            ncnn model
 
-bgr -> bgr and rgb -> rgb keep the directories they had before the VideoIO scheme, so engines
-built earlier are still reused.
+bgr -> bgr keeps the directories it had before the VideoIO scheme, so engines built earlier are
+still reused.
 """
 from pathlib import Path
 
@@ -34,7 +29,7 @@ def resolve_model(model, frame_size, scale):
 
 
 # VideoIO.tag -> legacy directory suffix (exports/{kind}_{suffix}/{tag}.{ext})
-_LEGACY = {"bgr_bgr": "cv2", "rgb_rgb": "nvdec"}
+_LEGACY = {"bgr_bgr": "cv2"}
 
 
 def _video(kind, ext, tag, io):

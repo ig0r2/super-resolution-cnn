@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 
 from .base import _BasePlayer, format_time
-from .reader import _DecodeReader
+from ..decode.reader import _DecodeReader
 
 
 class Letterboxer:
@@ -100,6 +100,7 @@ class _BaseCv2Player(_BasePlayer):
         return True
 
     def play(self):
+        print("[videoplayer] Starting playback.")
         if self.upscale_fn is None:
             return
 

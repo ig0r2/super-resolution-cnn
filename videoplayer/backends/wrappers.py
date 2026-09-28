@@ -9,7 +9,6 @@ layout (what the display wants), both meeting at the model's (1,3,H,W) RGB [0,1]
     input  "rgb" : (3,H,W) uint8 planar RGB     -- NVDEC (RGBP)
     input  "bgr" : (H,W,3) uint8 packed BGR     -- PyAV (bgr24) / cv2.VideoCapture
     output "bgr"     : (H*s,W*s,3) uint8 BGR          -- cv2 display
-    output "rgb"     : (3,H*s,W*s) uint8 planar RGB   -- CUDA-GL display
     output "rgb_f16" : (1,3,H*s,W*s) fp16 RGB [0,255] -- GPU bicubic downscale before display
 
 "rgb_f16" skips the uint8 quantization for players that downscale the SR output on the GPU:
@@ -18,8 +17,7 @@ back to float (and rounded twice).
 
 Combinations in use:
     PyAV / cv2 + cv2 display : bgr -> bgr  (one engine for both CPU decoders)
-    NVDEC + cv2 display      : rgb -> bgr      (no downscale) / rgb -> rgb_f16 (downscaled)
-    NVDEC + GL display       : rgb -> rgb      (no downscale) / rgb -> rgb_f16 (downscaled)
+    NVDEC + cv2 / GL display : rgb -> rgb_f16  (with or without downscale; one engine for both)
 """
 
 from dataclasses import dataclass
@@ -28,7 +26,7 @@ from typing import Literal
 import torch
 
 Layout = Literal["rgb", "bgr"]
-OutputLayout = Literal["rgb", "bgr", "rgb_f16"]
+OutputLayout = Literal["bgr", "rgb_f16"]
 
 
 @dataclass(frozen=True)
@@ -67,7 +65,5 @@ class VideoWrapper(torch.nn.Module):
         out = torch.clamp(out, 0.0, 1.0) * 255.0
         if self.io.output == "rgb_f16":
             return out.to(dtype=torch.float16)  # (1,3,sH,sW) RGB
-        out = out.squeeze(0)  # (3,sH,sW) RGB
-        if self.io.output == "bgr":
-            out = out.permute(1, 2, 0)[..., [2, 1, 0]]  # -> (sH,sW,3) BGR
+        out = out.squeeze(0).permute(1, 2, 0)[..., [2, 1, 0]]  # -> (sH,sW,3) BGR
         return out.to(dtype=torch.uint8)
