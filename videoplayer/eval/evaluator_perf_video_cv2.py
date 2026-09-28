@@ -6,7 +6,7 @@ import torch
 
 from videoplayer.backends.cv2_backends import Runtype, make_backend
 from videoplayer.decode import CpuDecoder, open_decoder
-from videoplayer.scaling import choose_auto_scale
+from videoplayer.common.scaling import choose_auto_scale
 from ._base import _BaseVideoPerfEvaluator
 
 

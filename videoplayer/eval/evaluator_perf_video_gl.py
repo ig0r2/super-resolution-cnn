@@ -29,7 +29,7 @@ import time
 import torch
 from OpenGL import GL
 
-from videoplayer.scaling import choose_auto_scale
+from videoplayer.common.scaling import choose_auto_scale
 from videoplayer.backends.gl_build import build_engine
 from videoplayer.decode.decoder_nvdec import NvDecoder
 from ._base import _BaseVideoPerfEvaluator

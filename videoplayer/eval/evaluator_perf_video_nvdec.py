@@ -4,7 +4,7 @@ import time
 import torch
 import torch.nn.functional as F
 
-from videoplayer.scaling import choose_auto_scale
+from videoplayer.common.scaling import choose_auto_scale
 from videoplayer.decode.decoder_nvdec import NvDecoder
 from videoplayer.backends.nvdec_backend import TRTBackendNVDEC
 from ._base import _BaseVideoPerfEvaluator
@@ -29,7 +29,7 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
     faster model buys little. Large models: sr grows and dominates total -> the model is the
     bottleneck. That crossover is exactly what these columns expose.
 
-    Uses TRTBackendNVDEC, so it shares the engine cache with run_trt_nvdec.py.
+    Uses TRTBackendNVDEC, so it shares the engine cache with the NVDEC players (run/run.py).
     """
 
     def evaluate(self):

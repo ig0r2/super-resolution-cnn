@@ -5,7 +5,7 @@ import torch
 from .export import get_onnx_video
 from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
 from .wrappers import VideoIO
-from .. import cache_paths
+from ..common import cache_paths
 
 
 def _log(msg: str):

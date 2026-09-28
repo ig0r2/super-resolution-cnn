@@ -1,13 +1,9 @@
 import time
 from collections import deque
-from pathlib import Path
-from typing import Optional, Tuple
-
 import glfw
 import torch
 
 from .base import _BasePlayer, format_time
-from ..decode import Decoder, open_decoder
 from ..decode.reader import _DecodeReader
 
 
@@ -15,19 +11,13 @@ class _BaseGlPlayer(_BasePlayer):
     """
     glfw/OpenGL display on top of _BasePlayer for the GPU-display SR players: shows frames straight
     from GPU memory and puts the FPS / position stats in the window title bar instead of drawing
-    them onto the frame (no CPU text-draw pass). Decodes with NVDEC by default; a subclass whose
-    surface also takes host frames can pass decoder="pyav" / "cv2".
+    them onto the frame (no CPU text-draw pass). Subclasses pick the decoder: "nvdec" for the CUDA
+    surfaces, or "pyav" / "cv2" for a surface that also takes host frames.
 
     Subclasses supply only the display surface and how a frame is shown: ``_gl_open`` (create the
     surface and register the key callback), ``_gl_infer`` (run SR on a new frame and upload it) and
     ``_gl_present`` (show the current frame with a title); ``_gl_sync`` if the SR work isn't on CUDA.
     """
-
-    def __init__(self, video_path, decoder: Decoder = "nvdec", target_size: Optional[Tuple[int, int]] = None,
-                 enable_audio: bool = True, start_fullscreen: bool = True):
-        print(f"[videoplayer] Opening video {Path(video_path).name} ({decoder}) ...")
-        super().__init__(video_path, open_decoder(video_path, decoder), target_size=target_size,
-                         enable_audio=enable_audio, start_fullscreen=start_fullscreen)
 
     def _gl_ready(self) -> bool:
         """Whether the SR back-end is set up and playback can start."""

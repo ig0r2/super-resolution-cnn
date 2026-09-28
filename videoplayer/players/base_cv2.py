@@ -53,7 +53,7 @@ class _BaseCv2Player(_BasePlayer):
     """
     cv2 display on top of _BasePlayer: cv2 window, fullscreen toggle, keyboard controls, the
     FPS/time overlay (letterboxed in fullscreen) and the real-time frame-skipping display loop.
-    Subclasses open a decoder and supply how a decoded frame becomes a BGR image to show
+    Subclasses pick the decoder and supply how a decoded frame becomes a BGR image to show
     (``_produce_display``).
     """
 
@@ -100,11 +100,11 @@ class _BaseCv2Player(_BasePlayer):
         return True
 
     def play(self):
-        print("[videoplayer] Starting playback.")
         if self.upscale_fn is None:
             return
 
         print(f"[videoplayer] Running config: {self.config_desc}")
+        print("[videoplayer] Starting playback.")
         self._print_controls()
 
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)

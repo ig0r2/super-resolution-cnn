@@ -17,7 +17,7 @@ from OpenGL import GL
 from .base_gl import _BaseGlPlayer
 from ..decode import Decoder
 from ..backends.gl_build import build_engine
-from ..cache_paths import resolve_model
+from ..common.cache_paths import resolve_model
 
 
 class VideoPlayerGL(_BaseGlPlayer):

@@ -7,16 +7,30 @@ surface hooks are player-specific. Frame stats (FPS, position) go to the window 
 instead of being drawn onto the frame, which avoids a CPU text-draw pass and any GL text rendering.
 """
 
+from typing import Optional, Tuple
+
 import glfw
 import torch
 import torch.nn.functional as F
 
 from .base_gl import _BaseGlPlayer
 from ..backends.gl_display import GLDisplay
+from ..backends.nvdec_backend import TRTBackendNVDEC
 
 
 class VideoPlayerNvdecGL(_BaseGlPlayer):
+    """Takes the model (checkpoint name or .pth path) directly: the scale is picked for the screen and
+    the TensorRT backend is built on construction."""
+
     config_desc = "NVDEC decode + TensorRT SR + CUDA-GL zero-copy display"
+
+    def __init__(self, video_path, model, candidate_scales=(2, 3, 4),
+                 target_size: Optional[Tuple[int, int]] = None,
+                 enable_audio: bool = True, start_fullscreen: bool = True):
+        super().__init__(video_path, "nvdec", target_size=target_size,
+                         enable_audio=enable_audio, start_fullscreen=start_fullscreen)
+        self.scale = self.configure_scale(candidate_scales)
+        self.set_upscale_fn(TRTBackendNVDEC(model, self.size, self.scale))
 
     def _downscale(self, out: torch.Tensor) -> torch.Tensor:
         """SR output (1,3,H*s,W*s) fp16 RGB [0,255] CUDA -> (3,Ht,Wt) RGB CUDA for GLDisplay.upload,

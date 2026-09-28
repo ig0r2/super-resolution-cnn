@@ -20,7 +20,7 @@ import torch
 from .export import export_trt, get_onnx_video, load_model
 from .export_trt_engine import get_raw_trt_engine, TRTRawRunner
 from .wrappers import VideoIO
-from .. import cache_paths
+from ..common import cache_paths
 
 Runtype = Literal["tensorrt", "tensorrt-pt2", "ncnn-vulkan",
 "onnxruntime-cuda", "onnxruntime-tensorrt", "onnxruntime-openvino",

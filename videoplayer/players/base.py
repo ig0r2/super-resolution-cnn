@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Optional, Tuple
 
-from ..audio import AudioTrack
-from ..scaling import choose_auto_scale, get_screen_size
+from ..common.audio import AudioTrack
+from ..decode import Decoder, open_decoder
+from ..common.scaling import choose_auto_scale, get_screen_size
 
 
 def format_time(seconds: float) -> str:
@@ -15,11 +16,12 @@ class _BasePlayer:
     """
     Display-independent part of an SR player: the decoder, audio track, frame geometry, the SR
     function, scale selection and seeking. _BaseCv2Player and _BaseGlPlayer add the display loop.
+    Subclasses pass the decoder by name ("nvdec", "pyav" or "cv2"); it is opened here.
     """
 
     config_desc = "SR video player"
 
-    def __init__(self, video_path, decoder,
+    def __init__(self, video_path, decoder: Decoder,
                  target_size: Optional[Tuple[int, int]] = None,
                  enable_audio: bool = True, start_fullscreen: bool = True,
                  seek_step_s: float = 1.0, seek_step_large_s: float = 10.0):
@@ -30,10 +32,11 @@ class _BasePlayer:
         self.target_size = target_size
         self.log_prefix = "[videoplayer]"
 
-        self.decoder = decoder
-        self.fps = decoder.fps
-        self.frame_count = len(decoder)
-        self.frame_size = (decoder.height, decoder.width)
+        print(f"{self.log_prefix} Opening video {self.video_path.name} ({decoder}) ...")
+        self.decoder = open_decoder(self.video_path, decoder)
+        self.fps = self.decoder.fps
+        self.frame_count = len(self.decoder)
+        self.frame_size = (self.decoder.height, self.decoder.width)
 
         self.upscale_fn = None
         self.paused = False
