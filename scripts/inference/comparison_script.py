@@ -59,34 +59,35 @@ if __name__ == "__main__":
         'bicubic',
         'lanczos'
     ]
+    # (checkpoint_path, display_name)
     CHECKPOINT_PATHS = [
-        get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"),
-        get_checkpoints_path("2x/SR_SRCNN_2x.pth"),
-        get_checkpoints_path("2x/SR_VDSR_2x_18_64.pth"),
-        get_checkpoints_path("2x/SR_IMDN_2x_4_256.pth"),
-        # get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
-        get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_4_256_GAN.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_2_48.pth"),
-        # get_checkpoints_path("multiscale/SR_IMDN_2_48.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_48.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256_GAN.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128_GAN.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256_GAN.pth"),
-        # get_checkpoints_path("multiscale/SR_RFDN_4_256_ESRGAN.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_GAN.pth"),
-        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_ESRGAN.pth"),
+        (get_checkpoints_path("2x/SR_EDSR_2x_32_256_r.pth"), "EDSR"),
+        (get_checkpoints_path("2x/SR_SRCNN_2x.pth"), "SRCNN"),
+        (get_checkpoints_path("2x/SR_VDSR_2x_18_64.pth"), "VDSR"),
+        (get_checkpoints_path("2x/SR_IMDN_2x_4_256.pth"), "IMDN"),
+        # (get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"), "EDSR 2/52"),
+        (get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"), "RFDN"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_4_256_GAN.pth"), "RFDN 4/256 GAN"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"), "RFDN 4/128"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"), "RFDN 1/128"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_2_48.pth"), "RFDN 2/48"),
+        # (get_checkpoints_path("multiscale/SR_IMDN_2_48.pth"), "IMDN 2/48"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"), "FastEDSR 4/64"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"), "FastEDSR 4/128"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"), "FastEDSR jpeg 2/64"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"), "FastEDSR jpeg 4/32"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_48.pth"), "FastEDSR jpeg 4/48"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"), "FastEDSR jpeg 4_64"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"), "FastEDSR jpeg 4/128"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"), "FastEDSR jpeg_s 4/128"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"), "FastEDSR jpeg 4/256"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256_GAN.pth"), "FastEDSR jpeg 4/256 GAN"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128_GAN.pth"), "RFDN jpeg 2/128 GAN"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256.pth"), "RFDN jpeg 2/256"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256_GAN.pth"), "RFDN jpeg 2/256 GAN"),
+        # (get_checkpoints_path("multiscale/SR_RFDN_4_256_ESRGAN.pth"), "RFDN 4/256 ESRGAN"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_GAN.pth"), "FastEDSR jpeg 4/64 GAN"),
+        # (get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_ESRGAN.pth"), "FastEDSR jpeg 4/64 ESRGAN"),
     ]
 
     ############### 3 #############################
@@ -115,4 +116,4 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     comparator = ImageComparison(lr_path=LR_PATH, hr_path=HR_PATH, device=device, upscale_factor=UPSCALE_FACTOR)
-    comparator.compare(checkpoint_paths=CHECKPOINT_PATHS, methods=METHODS, crop_box=CROP_BOX)
+    comparator.compare(checkpoints=CHECKPOINT_PATHS, methods=METHODS, crop_box=CROP_BOX)

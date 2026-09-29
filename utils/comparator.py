@@ -51,7 +51,7 @@ class ImageComparison:
             'metrics': {'ssim': ssim, 'psnr': psnr}
         }
 
-    def proccess_checkpoint(self, checkpoint_path):
+    def proccess_checkpoint(self, checkpoint_path, display_name):
         checkpoint_path = Path(checkpoint_path)
         model, checkpoint = load_model_from_checkpoint(checkpoint_path, self.device)
         model.upscale_factor = self.upscale_factor
@@ -66,22 +66,23 @@ class ImageComparison:
         output = v2.functional.to_pil_image(output.squeeze().cpu().div(255))
         print('Processed:', checkpoint_path.stem)
         return {
-            'name': checkpoint['checkpoint_name'], 'desc': f'{ssim:.4f}/{psnr:.2f}', 'img': output,
+            'name': display_name, 'desc': f'{ssim:.4f}/{psnr:.2f}', 'img': output,
             'metrics': {'ssim': ssim, 'psnr': psnr}
         }
 
-    def compare(self, checkpoint_paths, methods, crop_box):
+    def compare(self, checkpoints, methods, crop_box):
         """
         Args:
+            checkpoints: Lista tuple-ova (checkpoint_path, display_name)
             crop_box: Tuple (x, y, width, height) - region za crop NA LR SLICI
         """
         # Process image with all models
-        images = [self.proccess_checkpoint(ch) for ch in checkpoint_paths]
+        images = [self.proccess_checkpoint(path, name) for path, name in checkpoints]
         images += [self.proccess_method(m) for m in methods]
         images.sort(key=lambda x: (x['metrics']['ssim'], x['metrics']['psnr']), reverse=True)
         # Add HR image
         hr_pil = v2.functional.to_pil_image(self.hr_image.squeeze().div(255).cpu())
-        images.insert(0, {'name': 'Ground Truth', 'desc': 'SSIM/PSNR', 'img': hr_pil})
+        images.insert(0, {'name': 'Original HR', 'desc': 'SSIM/PSNR', 'img': hr_pil})
         # LR image for left side
         original_image = v2.functional.to_pil_image(self.lr_image_fp.squeeze().clamp(0, 1).cpu())
 
@@ -103,7 +104,7 @@ class ImageComparison:
         ax_original.imshow(original_image)
         ax_original.axis('off')
         ax_original.text(0.5, -0.05, self.lr_path.name, transform=ax_original.transAxes, ha='center', va='top',
-                         fontsize=10)
+                         fontsize=12)
 
         # Draw rectangle for crop patch on original image
         ax_original.add_patch(
@@ -118,7 +119,7 @@ class ImageComparison:
             ax.axis('off')
 
             ax.text(0.5, -0.1, f'{method_img['name']}\n{method_img['desc']}',
-                    transform=ax.transAxes, ha='center', va='top', fontsize=10)
+                    transform=ax.transAxes, ha='center', va='top', fontsize=12)
 
         save_path = get_project_root(f'inference/comparison/comparison_{self.lr_path.stem}.png')
         save_path.parent.mkdir(parents=True, exist_ok=True)

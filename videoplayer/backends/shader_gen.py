@@ -14,6 +14,38 @@ Model recap (SR_FastEDSR_Multi):
 Channels are packed 4-per-texture (RGBA), so a layer with C channels becomes ceil(C/4) "groups"
 (one output texture each). When a conv reads more input groups than fit in the GPU texture-unit
 budget, the inputs are split into chunks and the partial sums are accumulated across chunk passes.
+
+
+
+// ===== Pass 0/75 =====
+//!SAVE  net_0_p0
+//!BIND  tex_g0 = INPUT
+//!SCALE 1
+//!FMT   f16
+#version 330 core
+out vec4 fragColor;
+uniform vec2 in_texel;
+uniform sampler2D tex_g0;
+vec4 T(sampler2D t, vec2 o) {
+    vec2 c = (gl_FragCoord.xy + o) * in_texel;
+    if (c.x < 0.0 || c.y < 0.0 || c.x >= 1.0 || c.y >= 1.0) return vec4(0.0);
+    return texture(t, c);
+}
+#define get_0(x_off, y_off) T(tex_g0, vec2(x_off, y_off))
+void main() {
+    vec4 result = vec4(0.0);
+    result += mat4(0.17699380, 0.10847467, 0.02551026, -0.08924165, -0.11590295, -0.13920780, 0.00328157, -0.04620171, -0.14317730, 0.14656281, -0.15736639, -0.00474918, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(-1,-1);
+    result += mat4(0.21225265, 0.11559515, 0.06221636, 0.09309163, -0.14265341, -0.11880668, 0.11224534, 0.03341649, -0.11350344, -0.13091910, -0.13263659, 0.08030946, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(-1,0);
+    result += mat4(-0.11231097, 0.02182120, -0.02697308, -0.15056044, 0.15424044, -0.05115987, -0.13286690, 0.06129747, -0.17505533, 0.10032808, 0.10406858, -0.02448466, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(-1,1);
+    result += mat4(-0.10718194, 0.08760329, -0.04232636, 0.09270097, -0.11236047, -0.10528165, 0.15126391, -0.11821070, 0.14578694, -0.10091118, -0.19017191, -0.02109385, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(0,-1);
+    result += mat4(-0.10116921, -0.06896827, 0.14755976, -0.17370172, -0.07823832, -0.16102773, 0.15618828, -0.03882855, 0.07404698, 0.04233680, 0.02216748, 0.02211509, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(0,0);
+    result += mat4(0.08342338, 0.15408987, -0.10891418, 0.21910048, -0.14673620, 0.16911390, -0.01025324, -0.09253041, 0.17637633, -0.07789710, 0.13829410, 0.16399653, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(0,1);
+    result += mat4(0.08192942, 0.13263719, 0.03971464, -0.04905372, 0.00505520, -0.02934883, -0.13044235, 0.16677649, 0.05563866, 0.05362990, 0.15135917, -0.12086851, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(1,-1);
+    result += mat4(-0.17601137, 0.01051325, 0.06806017, 0.09482787, -0.17469324, -0.02850389, -0.01775950, -0.10145306, 0.17810336, -0.06739230, 0.12939489, 0.20399746, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(1,0);
+    result += mat4(0.15112452, 0.13194044, -0.12381813, 0.14182733, 0.09900526, -0.00605172, 0.13770939, -0.15328495, 0.11807380, 0.11042152, -0.07411992, -0.14979093, 0.00000000, 0.00000000, 0.00000000, 0.00000000) * get_0(1,1);
+    result += vec4(-0.01514374, -0.17063676, -0.03614031, -0.08633827);
+    fragColor = result;
+}
 """
 
 from dataclasses import dataclass, field
@@ -28,11 +60,11 @@ INPUT = "INPUT"  # sentinel texture key for the decoded LR frame (RGBA8, RGB in 
 @dataclass
 class Pass:
     """One fragment-shader render pass. Writes texture `save` from the bound input textures."""
-    save: str                                   # output texture key
-    frag: str                                   # full GLSL fragment shader source
-    binds: List[Tuple[str, str]]                # (sampler uniform name, source texture key)
-    out_scale: int = 1                          # output res = LR res * out_scale
-    fmt: str = "f16"                            # "f16" (feature) or "rgba8" (final)
+    save: str  # output texture key
+    frag: str  # full GLSL fragment shader source
+    binds: List[Tuple[str, str]]  # (sampler uniform name, source texture key)
+    out_scale: int = 1  # output res = LR res * out_scale
+    fmt: str = "f16"  # "f16" (feature) or "rgba8" (final)
     is_final: bool = False
 
 
@@ -41,28 +73,39 @@ class Pass:
 # --------------------------------------------------------------------------------------------
 def _mat4(W, out_group, in_group, x, y) -> str:
     """4x4 weight block mapping input group -> output group for kernel tap (x, y)."""
+    # output_ch, input_ch, kernel_h, kernel_w = W.shape
     mat = W[4 * out_group:4 * out_group + 4, 4 * in_group:4 * in_group + 4, y, x]
-    if mat.shape != (4, 4):  # pad partial groups (e.g. 3-channel input) to 4x4 with zeros
+
+    if mat.shape != (4, 4):  # pad to 4x4
         padded = np.zeros((4, 4), dtype=mat.dtype)
         padded[:mat.shape[0], :mat.shape[1]] = mat
         mat = padded
-    # GLSL mat4 is column-major, so transpose before flattening.
-    return "mat4(" + ", ".join(f"{w:.8f}" for w in mat.T.flatten()) + ")"
+
+    # in GLSL mat4 is column-major so transpose is needed
+    weights_str = ", ".join(f"{w:.8f}" for w in mat.T.flatten())
+
+    return f"mat4({weights_str})"
 
 
 def _bias(b, out_group) -> str:
     bias = b[4 * out_group: 4 * out_group + 4]
-    if len(bias) < 4:
+    if len(bias) < 4:  # pad to 4
         bias = np.append(bias, [0.0] * (4 - len(bias)))
-    return "vec4(" + ", ".join(f"{v:.8f}" for v in bias) + ")"
+    bias_str = ", ".join(f"{val:.8f}" for val in bias)
+    return f"vec4({bias_str})"
+
+
+def _conv_line(W, out_group, in_group, x, y):
+    return f"    result += {_mat4(W, out_group, in_group, x, y)} * get_{in_group}({x - 1},{y - 1});"
 
 
 def _conv_lines(W, out_group, in_group) -> str:
-    """The 9 mat4*vec4 taps for one (output group, input group) pair."""
+    """The 9 mat4*vec4 taps for one (output group, input group) pair.
+    For single output group (4 channels) and input group (4 channels) => (9 pixels)"""
     lines = ""
     for x in range(3):
         for y in range(3):
-            lines += f"    result += {_mat4(W, out_group, in_group, x, y)} * get_{in_group}({x - 1},{y - 1});\n"
+            lines += _conv_line(W, out_group, in_group, x, y) + "\n"
     return lines
 
 
@@ -98,7 +141,7 @@ def _conv_frag(W, b, out_group, in_groups: List[int],
 
     src += _SAMPLER_FN
     for i in in_groups:
-        src += f"#define get_{i}(x, y) T(tex_g{i}, vec2(x, y))\n"
+        src += f"#define get_{i}(x_off, y_off) T(tex_g{i}, vec2(x_off, y_off))\n"
 
     src += "void main() {\n    vec4 result = vec4(0.0);\n"
     for i in in_groups:
@@ -119,7 +162,7 @@ def _conv_frag_main(W, b, out_group) -> str:
     """First conv: reads the LR frame (INPUT) as the single, zero-padded input group 0."""
     src = "#version 330 core\nout vec4 fragColor;\nuniform vec2 in_texel;\nuniform sampler2D tex_g0;\n"
     src += _SAMPLER_FN
-    src += "#define get_0(x, y) T(tex_g0, vec2(x, y))\n"
+    src += "#define get_0(x_off, y_off) T(tex_g0, vec2(x_off, y_off))\n"
     src += "void main() {\n    vec4 result = vec4(0.0);\n"
     src += _conv_lines(W, out_group, 0)
     src += f"    result += {_bias(b, out_group)};\n    fragColor = result;\n}}\n"
