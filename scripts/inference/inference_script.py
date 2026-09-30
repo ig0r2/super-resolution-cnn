@@ -5,7 +5,7 @@ from typing import Literal
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import torch
-from torchvision.io import decode_image
+from torchvision.io import ImageReadMode, decode_image
 from torchvision.utils import save_image
 
 from models import RegularModel
@@ -46,7 +46,7 @@ model.eval()
 
 for input_path in INPUT_DIR.iterdir():
     if not input_path.is_file(): continue
-    input_tensor = decode_image(str(input_path)).unsqueeze(0).float().div_(255.0).to(device)
+    input_tensor = decode_image(str(input_path), mode=ImageReadMode.RGB).unsqueeze(0).float().div_(255.0).to(device)
 
     with torch.no_grad():
         # output = model(input_tensor)
