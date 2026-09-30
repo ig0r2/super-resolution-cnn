@@ -1,0 +1,45 @@
+% Izvor: results_2x_DIV2K_half.csv   modela: 43   bin: FPS 480p
+
+\begin{table}[H]
+    \centering
+    \caption{Najbolji model po metrici i opsegu brzine (FPS 480p) (DIV2K, $\times2$ bez FastEDSR).}
+    \label{tab:fps_bins_best_model_2x_DIV2K}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        Opseg FPS 480p & Najbolji SSIM $\uparrow$ & Najbolji LPIPS $\downarrow$ \\
+        \midrule
+        $<$30 & EDSR 32/256 (0,936) & EDSR 32/256 (0,088) \\
+        30--45 & RFDN 1/256 (0,933) & RFDN 1/256 (0,097) \\
+        45--60 & RFDN 2/128 (0,932) & RFDN 2/128 (0,096) \\
+        60--90 & EDSR 16/64 (0,933) & EDSR 16/64 (0,098) \\
+        90--120 & RFDN 1/128 (0,930) & RFDN 1/128 (0,099) \\
+        120--250 & IMDN 1/96 (0,928) & IMDN 1/96 (0,103) \\
+        250--500 & EDSR 2/48 (0,924) & EDSR 2/48 (0,114) \\
+        $>$500 & EDSR 2/32 (0,921) & EDSR 2/32 (0,122) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Arhitektura sa najboljim prosekom metrike po opsegu brzine (FPS 480p) (DIV2K, $\times2$ bez FastEDSR).}
+    \label{tab:fps_bins_best_arch_2x_DIV2K}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        Opseg FPS 480p & Najbolji prosek SSIM $\uparrow$ & Najbolji prosek LPIPS $\downarrow$ \\
+        \midrule
+        $<$30 & IMDN (0,934) & IMDN (0,092) \\
+        30--45 & RFDN (0,933) & RFDN (0,097) \\
+        45--60 & RFDN (0,932) & RFDN (0,096) \\
+        60--90 & RFDN (0,931) & RFDN (0,100) \\
+        90--120 & IMDN (0,929) & IMDN (0,104) \\
+        120--250 & EDSR (0,926) & EDSR (0,109) \\
+        250--500 & EDSR (0,924) & EDSR (0,114) \\
+        $>$500 & EDSR (0,917) & EDSR (0,137) \\
+        \bottomrule
+    \end{tabular}
+\end{table}

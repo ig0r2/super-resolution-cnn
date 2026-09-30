@@ -87,6 +87,19 @@ CONFIGS = [
         "metrics": ["SSIM", "LPIPS"],
         "dataset": "Set14",
     },
+    {
+        "name": "DIV2K_2x_all",
+        "scale": "2x",
+        "dataset": "DIV2K",
+        "metrics": ["SSIM", "LPIPS"],
+        "exclude": ["GAN", "ESRGAN", "jpeg"],
+    },
+    {
+        "name": "DIV2K_2x_standard",
+        "scale": "2x",
+        "metrics": ["SSIM", "LPIPS"],
+        "dataset": "DIV2K",
+    },
 ]
 
 
