@@ -7,21 +7,20 @@ ispisuje minimalnu, prosecnu i maksimalnu apsolutnu razliku (uz prosecnu razliku
 sa znakom, radi smera). Male vrednosti znace da poluprecinost ne kvari kvalitet.
 """
 
-import csv
 import statistics
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from utils.analysis.config import run_configs
+from utils.analysis.data import name_filter, read_rows, require_results, to_float
+from utils.analysis.fmt import zf
+from utils.analysis.names import INTERPOLATIONS
 from utils.logger import Logger
 from utils.path import get_results_path
 
 DEFAULT_EXCLUDE = ["GAN", "ESRGAN", "jpeg"]
-METRICS = ("SSIM", "PSNR", "LPIPS")
-# Bazne interpolacije ne zavise od precinosti — izbacuju se iz poredjenja.
-BASELINE_NAMES = ("nearest", "bilinear", "bicubic", "lanczos")
 
 # Podrazumevane vrednosti za svako polje konfiguracije. Svaka stavka u CONFIGS
 # prepisuje samo ono sto joj treba; ostalo se uzima odavde.
@@ -29,7 +28,7 @@ CONFIG_DEFAULTS = {
     "name": "default",  # koristi se za ime izlaznog fajla
     "fp32_results": "results_2x_Set14.csv",  # CSV sa FP32 kvalitetom
     "fp16_results": "results_2x_Set14_half.csv",  # CSV sa FP16 kvalitetom (_half)
-    "metrics": list(METRICS),  # metrike za poredjenje (podskup METRICS)
+    "metrics": ["SSIM", "PSNR", "LPIPS"],  # metrike za poredjenje
     "archs": None,  # zadrzi samo ove arhitekture (npr. ["EDSR"])
     "include": None,  # zadrzi samo modele cije ime sadrzi neku nisku
     "exclude": None,  # None -> DEFAULT_EXCLUDE
@@ -52,90 +51,27 @@ CONFIGS = [
 ##############################################
 
 
-def resolve_results(name: str) -> Path:
-    p = Path(name)
-    if p.is_absolute() or p.exists():
-        return p
-    return get_results_path(name)
-
-
-def arch_of(name: str) -> str:
-    parts = name.split("_")
-    if parts and parts[0] == "SR":
-        parts = parts[1:]
-    return parts[0] if parts else name
-
-
-def to_float(x):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
-
-
-def zf(value, spec) -> str:
-    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
-    return format(value, spec).replace(".", ",")
-
-
-def keep(name, exclude, archs, include):
-    if not name or name in BASELINE_NAMES:
-        return False
-    if any(sub in name for sub in exclude):
-        return False
-    if include and not any(sub in name for sub in include):
-        return False
-    if archs and arch_of(name) not in archs:
-        return False
-    return True
-
-
-def load_side(path: Path, metrics, exclude, archs, include):
-    """Vrati {model_name: {metric: value, ...}}."""
+def load_side(path: Path, metrics, keep):
+    """Vrati {model_name: {metric: value, ...}}; bazne interpolacije se preskacu
+    (ne zavise od precinosti)."""
     out = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        missing = [m for m in metrics if m not in reader.fieldnames]
-        if missing:
-            sys.exit(f"Metrike {', '.join(missing)} ne postoje u {path.name}.")
-        for r in reader:
-            name = r.get("model_name", "")
-            if not keep(name, exclude, archs, include):
-                continue
-            rec = {}
-            for m in metrics:
-                v = to_float(r.get(m))
-                if v is not None:
-                    rec[m] = v
-            if rec:
-                out[name] = rec
+    for r in read_rows(path, metrics):
+        name = r.get("model_name", "")
+        if name in INTERPOLATIONS or not keep(name):
+            continue
+        rec = {m: v for m in metrics if (v := to_float(r.get(m))) is not None}
+        if rec:
+            out[name] = rec
     return out
 
 
-def main():
-    if not CONFIGS:
-        sys.exit("CONFIGS je prazna — dodaj bar jednu konfiguraciju.")
-    for i, cfg_dict in enumerate(CONFIGS):
-        cfg = SimpleNamespace(**{**CONFIG_DEFAULTS, **cfg_dict})
-        if i:
-            print("\n" + "=" * 96 + "\n")
-        print(f"### Konfiguracija: {cfg.name}\n")
-        run_config(cfg)
-
-
 def run_config(cfg):
-    exclude = DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude
-    archs_filter = set(cfg.archs) if cfg.archs else None
-    include = cfg.include or None
+    keep = name_filter(DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude, cfg.archs, cfg.include)
+    fp32_path = require_results(cfg.fp32_results)
+    fp16_path = require_results(cfg.fp16_results)
 
-    fp32_path = resolve_results(cfg.fp32_results)
-    fp16_path = resolve_results(cfg.fp16_results)
-    for p in (fp32_path, fp16_path):
-        if not p.exists():
-            sys.exit(f"CSV ne postoji: {p}")
-
-    fp32 = load_side(fp32_path, cfg.metrics, exclude, archs_filter, include)
-    fp16 = load_side(fp16_path, cfg.metrics, exclude, archs_filter, include)
+    fp32 = load_side(fp32_path, cfg.metrics, keep)
+    fp16 = load_side(fp16_path, cfg.metrics, keep)
     common = sorted(set(fp32) & set(fp16))
     if not common:
         sys.exit("Nema modela prisutnih u obe precinosti (proveri fajlove/filtre).")
@@ -187,4 +123,4 @@ def report(summary, fp32_path, fp16_path, n_common):
 
 
 if __name__ == "__main__":
-    main()
+    run_configs(CONFIGS, CONFIG_DEFAULTS, run_config)

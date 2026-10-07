@@ -1,0 +1,27 @@
+\begin{table}[H]
+    \centering
+    \caption{Kvalitet izdvojenih standardnih arhitektura na skupu DIV2K za uvećanje $\times4$. Broj parametara izražen je u milionima i zaokružen na tri decimale. Kolone $\Delta$ (sivo) prikazuju razliku u odnosu na bikubnu interpolaciju. Strelice označavaju poželjan smer promene metrike.}
+    \label{tab:results_4x_DIV2K}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{3.5pt}
+    \renewcommand{\arraystretch}{1.15}
+    \newcommand*{\dlt}[1]{\textcolor{gray}{#1}}
+    \begin{tabular}{@{}lrrrrrrr@{}}
+        \toprule
+        Model & \shortstack{Parametri\\($10^6$)} & \shortstack{PSNR $\uparrow$\\(dB)} & \dlt{\shortstack{$\Delta$PSNR\\(dB)}} & SSIM $\uparrow$ & \dlt{$\Delta$SSIM} & LPIPS $\downarrow$ & \dlt{$\Delta$LPIPS} \\
+        \midrule
+        Nearest & --- & 25,30 & \dlt{$-$1,40} & 0,7099 & \dlt{$-$0,0430} & 0,3924 & \dlt{$-$0,0205} \\
+        Bilinear & --- & 26,11 & \dlt{$-$0,58} & 0,7331 & \dlt{$-$0,0198} & 0,4205 & \dlt{$+$0,0076} \\
+        Bicubic & --- & 26,70 & \dlt{0,00} & 0,7529 & \dlt{0,0000} & 0,4129 & \dlt{0,0000} \\
+        Lanczos & --- & 26,93 & \dlt{$+$0,24} & 0,7595 & \dlt{$+$0,0066} & 0,4140 & \dlt{$+$0,0011} \\
+        \midrule
+        EDSR 4/52 & 0,930 & 28,14 & \dlt{$+$1,44} & 0,7970 & \dlt{$+$0,0441} & 0,3171 & \dlt{$-$0,0958} \\
+        IMDN 2/96 & 0,647 & 28,20 & \dlt{$+$1,50} & 0,7990 & \dlt{$+$0,0461} & 0,3130 & \dlt{$-$0,0999} \\
+        RFDN 4/256 & 10,981 & 28,78 & \dlt{$+$2,08} & 0,8142 & \dlt{$+$0,0613} & 0,2958 & \dlt{$-$0,1171} \\
+        ABPN 4/256 & 2,597 & 28,50 & \dlt{$+$1,81} & 0,8067 & \dlt{$+$0,0538} & 0,2906 & \dlt{$-$0,1223} \\
+        FastEDSR 6/256 & 7,289 & 28,64 & \dlt{$+$1,94} & 0,8105 & \dlt{$+$0,0576} & 0,2842 & \dlt{$-$0,1287} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

@@ -26,7 +26,7 @@ if __name__ == "__main__":
     USE_HALF = True
     EVALUATE_METRICS = True
     JPEG_DEGRADATION = True
-    JPEG_QUALITY = 45  # None -> per-image deterministic quality; int -> fixed quality for all test images
+    JPEG_QUALITY = None  # None -> per-image deterministic quality; int -> fixed quality for all test images
 
     EVALUATE_WITH_TILED = False
 
@@ -37,23 +37,61 @@ if __name__ == "__main__":
     SKIP_EVALUATED = True
 
     CHECKPOINT_PATHS = [
-        get_checkpoints_path("multiscale/SR_FastEDSR_4_32.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_2_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_4_256.pth"),
-        get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_2_128.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128.pth"),
+        get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128_s.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_4_32.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_2_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_4_256.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
+        #
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_4_128.pth"),
+        #
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32_s.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_s.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"),
 
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_2_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_256.pth"),
-        get_checkpoints_path("multiscale/SR_RFDN_jpeg_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_NN_4_32.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_NN_4_64.pth"),
+        # get_checkpoints_path("multiscale/SR_FastEDSR_NN_4_128.pth"),
 
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32_s.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_64_s.pth"),
-        get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_128_s.pth"),
+        # get_checkpoints_path("2x/SR_EDSR_2x_0_16.pth"),
+        # get_checkpoints_path("2x/SR_EDSR_2x_1_16.pth"),
+        #
+        # get_checkpoints_path("2x/SR_VDSR_2x_5_64.pth"),
+        # get_checkpoints_path("2x/SR_VDSR_2x_10_32.pth"),
+        # get_checkpoints_path("2x/SR_VDSR_2x_18_64.pth"),
+        # get_checkpoints_path("2x/SR_VDSR_2x_10_64.pth"),
+        # get_checkpoints_path("2x/SR_VDSR_2x_10_128.pth"),
+        #
+        # get_checkpoints_path("2x/SR_RFDN_2x_1_16.pth"),
+        # get_checkpoints_path("2x/SR_RFDN_2x_1_32.pth"),
+        # get_checkpoints_path("2x/SR_RFDN_2x_2_32.pth"),
+        #
+        # get_checkpoints_path("multiscale/SR_ABPN_1_32.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_1_48.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_1_128.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_2_16.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_2_28.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_2_128.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_2_256.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_4_16.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_4_28.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_4_48.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_4_64.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_4_128.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_4_256.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_6_28.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_6_64.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_8_48.pth"),
+        # get_checkpoints_path("multiscale/SR_ABPN_10_48.pth"),
     ]
 
     METHODS = [

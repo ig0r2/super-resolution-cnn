@@ -1,6 +1,7 @@
 import gc
 import time
 
+import cv2
 import torch
 import torch.nn.functional as F
 
@@ -22,7 +23,8 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
 
       - decode  : NVDEC decode alone (the hard floor the pipeline can never beat)
       - sr      : TensorRT SR alone on the decoded frame (isolates the model)
-      - display : GPU bicubic downscale + device->host copy alone (the engine outputs fp16 RGB NCHW)
+      - display : GPU bicubic downscale + device->host copy (the engine outputs fp16 RGB NCHW) +
+                  cv2.imshow + cv2.waitKeyEx(1), i.e. the frame actually shown in a visible window
       - total   : decode + SR + display (the real display path)
 
     Small models: sr is small next to decode, so total sits near the decode/overhead floor -> a
@@ -67,7 +69,7 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
                 torch.cuda.synchronize()
                 t2 = time.perf_counter()
                 self._display(out, target_hw)
-                torch.cuda.synchronize()      # base: D2H .cpu() syncs; GL: D2D upload on default stream
+                torch.cuda.synchronize()      # base: D2H .cpu() syncs; GL: bounded by glFinish in _display
                 t3 = time.perf_counter()
                 totals["decode"] += t1 - t0
                 totals["sr"] += t2 - t1
@@ -82,18 +84,24 @@ class EvaluatorPerfVideoNVDEC(_BaseVideoPerfEvaluator):
 
     # -- display step (overridden by the CUDA-GL subclass) --------------------------------
     def _open_display(self, target_hw):
-        """Hook: set up the display target before the 'display' timing (no-op for the cv2/D2H path)."""
+        """Hook: set up the display target before the 'display' timing (a cv2 window here)."""
+        cv2.namedWindow(self._window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self._window_name, target_hw[1], target_hw[0])
 
     def _close_display(self):
-        """Hook: tear down the display target after timing (no-op for the cv2/D2H path)."""
+        """Hook: tear down the display target after timing."""
+        cv2.destroyWindow(self._window_name)
+        cv2.waitKey(1)
 
     def _display(self, out, target_hw):
-        """(1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale -> BGR + device->host copy to numpy.
+        """(1,3,H*s,W*s) fp16 RGB CUDA -> GPU bicubic downscale -> BGR + device->host copy to numpy
+        -> cv2.imshow + cv2.waitKeyEx(1).
 
-        This is the real cv2 display path (VideoPlayerNvdecCV2._produce_display): the returned numpy
-        array is what cv2.imshow would show, and .cpu() forces the copy to complete so the
-        'display' timing includes the D2H transfer.
+        This is the real cv2 display path (VideoPlayerNvdecCV2._produce_display + the player's
+        imshow/waitKeyEx): .cpu() forces the D2H copy to complete, and the window repaint happens
+        inside waitKeyEx, so the 'display' timing covers the frame actually reaching the screen.
         """
         x = F.interpolate(out, size=target_hw, mode="bicubic", align_corners=False)
         x = x.clamp(0.0, 255.0).to(torch.uint8).squeeze(0)
-        return x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy()
+        cv2.imshow(self._window_name, x[[2, 1, 0]].permute(1, 2, 0).contiguous().cpu().numpy())
+        cv2.waitKeyEx(1)

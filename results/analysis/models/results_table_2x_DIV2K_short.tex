@@ -1,0 +1,29 @@
+\begin{table}[H]
+    \centering
+    \caption{Kvalitet izdvojenih standardnih arhitektura na skupu DIV2K za uvećanje $\times2$. Kolone $\Delta$ (sivo) prikazuju razliku u odnosu na bikubnu interpolaciju. Strelice označavaju poželjan smer promene metrike.}
+    \label{tab:results_2x_DIV2K_short}
+    \begingroup
+    \small
+    \setlength{\tabcolsep}{3.5pt}
+    \renewcommand{\arraystretch}{1.15}
+    \newcommand*{\dlt}[1]{\textcolor{gray}{#1}}
+    \begin{tabular}{@{}lrrrrrr@{}}
+        \toprule
+        Model & \shortstack{PSNR $\uparrow$} & \dlt{\shortstack{$\Delta$PSNR}} & \qquad SSIM $\uparrow$ & \dlt{$\Delta$SSIM} & \qquad LPIPS $\downarrow$ & \dlt{$\Delta$LPIPS} \\
+        \midrule
+        Nearest & 29,25 & \dlt{$-$1,79} & 0,8727 & \dlt{$-$0,0204} & 0,1558 & \dlt{$-$0,0305} \\
+        Bilinear & 29,94 & \dlt{$-$1,10} & 0,8687 & \dlt{$-$0,0244} & 0,2290 & \dlt{$+$0,0427} \\
+        Bicubic & 31,04 & \dlt{0,00} & 0,8931 & \dlt{0,0000} & 0,1863 & \dlt{0,0000} \\
+        Lanczos & 31,51 & \dlt{$+$0,46} & 0,9009 & \dlt{$+$0,0078} & 0,2053 & \dlt{$+$0,0190} \\
+        \midrule
+        SRCNN & 32,40 & \dlt{$+$1,35} & 0,9159 & \dlt{$+$0,0228} & 0,1360 & \dlt{$-$0,0503} \\
+        VDSR & 34,04 & \dlt{$+$3,00} & 0,9329 & \dlt{$+$0,0398} & 0,0930 & \dlt{$-$0,0933} \\
+        EDSR & 34,40 & \dlt{$+$3,35} & 0,9357 & \dlt{$+$0,0426} & 0,0884 & \dlt{$-$0,0979} \\
+        IMDN & 34,27 & \dlt{$+$3,22} & 0,9345 & \dlt{$+$0,0414} & 0,0916 & \dlt{$-$0,0947} \\
+        RFDN & 34,48 & \dlt{$+$3,44} & 0,9362 & \dlt{$+$0,0431} & 0,0907 & \dlt{$-$0,0956} \\
+        ABPN & 34,03 & \dlt{$+$2,98} & 0,9323 & \dlt{$+$0,0392} & 0,0930 & \dlt{$-$0,0933} \\
+        FastEDSR & 34,19 & \dlt{$+$3,15} & 0,9339 & \dlt{$+$0,0408} & 0,0916 & \dlt{$-$0,0947} \\
+        \bottomrule
+    \end{tabular}
+    \endgroup
+\end{table}

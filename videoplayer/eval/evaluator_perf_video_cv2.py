@@ -22,7 +22,8 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
 
       - decode  : CPU decode (incl. YUV->BGR conversion) alone
       - sr      : backend inference alone (H2D + model + D2H, as the player pays)
-      - display : cv2 bicubic downscale to the display size alone
+      - display : cv2 bicubic downscale to the display size + cv2.imshow + cv2.waitKeyEx(1), as the
+                  player pays per frame (the window repaint itself happens inside waitKeyEx)
       - total   : decode + sr + display (the real display path)
     """
 
@@ -54,11 +55,16 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
             cursor[0] += 1
             return frame
 
-        def downscale(out):
-            return cv2.resize(out, (target_hw[1], target_hw[0]), interpolation=cv2.INTER_CUBIC)
+        def show(out):
+            out = cv2.resize(out, (target_hw[1], target_hw[0]), interpolation=cv2.INTER_CUBIC)
+            cv2.imshow(self._window_name, out)
+            cv2.waitKeyEx(1)
 
         def total_step():
-            downscale(backend(read_next()))
+            show(backend(read_next()))
+
+        cv2.namedWindow(self._window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self._window_name, target_hw[1], target_hw[0])
 
         try:
             for _ in range(self.warmup_runs):
@@ -72,7 +78,7 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
                 t1 = time.perf_counter()
                 out = backend(frame)
                 t2 = time.perf_counter()
-                downscale(out)
+                show(out)
                 t3 = time.perf_counter()
                 totals["decode"] += t1 - t0
                 totals["sr"] += t2 - t1
@@ -80,6 +86,8 @@ class EvaluatorPerfVideoCV2(_BaseVideoPerfEvaluator):
 
             return self._summarize(totals)
         finally:
+            cv2.destroyWindow(self._window_name)
+            cv2.waitKey(1)
             decoder.close()
             del backend
             gc.collect()

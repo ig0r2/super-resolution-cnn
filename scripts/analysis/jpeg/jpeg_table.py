@@ -8,28 +8,20 @@ tabelu koja se moze direktno prekopirati u tex dokument (bolduje bolju vrednost
 po metrici).
 """
 
-import csv
-import re
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from utils.analysis.config import run_configs
+from utils.analysis.data import read_rows, require_results, to_float
+from utils.analysis.fmt import tex_name, tex_row, tex_table, zf
+from utils.analysis.metrics import arrow, check_metrics, higher_is_better, prec_for
+from utils.analysis.names import display_name
 from utils.path import get_results_path
 
-# Konzola je cesto cp1252; ispis .tex sadrzi ć/č pa reconfigure da print ne puca.
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:
-    pass
-
-# Metrike: (broj decimala, da li je vece bolje, strelica za LaTeX header).
-METRIC_INFO = {
-    "LPIPS": (4, False, r"$\downarrow$"),
-    "SSIM": (4, True, r"$\uparrow$"),
-    "PSNR": (2, True, r"$\uparrow$"),
-}
+# Podrazumevan broj decimala (kad "decimals" ne zadaje drugacije); ostale metrike 4.
+DEFAULT_DECIMALS = {"PSNR": 2}
 
 # Podrazumevane vrednosti za svako polje konfiguracije. Svaka stavka u CONFIGS
 # prepisuje samo ono sto joj treba; ostalo se uzima odavde.
@@ -58,18 +50,6 @@ CONFIGS = [
     {
         "name": "DIV2K_jpeg_vs_s",
         "metrics": ["SSIM", "LPIPS"],
-        "pairing": "jpeg_vs_s",
-        "show_base": True
-    },
-    {
-        "name": "Set14_jpeg",
-        "results": "results_2x_Set14_jpeg_half.csv",
-        "pairing": "base_vs_jpeg",
-    },
-    {
-        "name": "Set14_jpeg_vs_s",
-        "metrics": ["SSIM", "LPIPS"],
-        "results": "results_2x_Set14_jpeg_half.csv",
         "pairing": "jpeg_vs_s",
         "show_base": True
     },
@@ -125,25 +105,6 @@ CONFIGS = [
 ##############################################
 
 
-def resolve_results(name: str) -> Path:
-    p = Path(name)
-    if p.is_absolute() or p.exists():
-        return p
-    return get_results_path(name)
-
-
-def to_float(x):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
-
-
-def zf(value, spec) -> str:
-    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
-    return format(value, spec).replace(".", ",")
-
-
 def jpeg_partner(name: str) -> str | None:
     """SR_<arh>_<konfig> -> SR_<arh>_jpeg_<konfig>; None ako ime nije SR_ oblik."""
     parts = name.split("_")
@@ -169,41 +130,25 @@ PAIRINGS = {
 def load_rows(path, metrics):
     """Vrati ({model_name: {metric: value}}, {model_name: params}) za pune redove."""
     out, params = {}, {}
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        missing = [m for m in metrics if m not in reader.fieldnames]
-        if missing:
-            sys.exit(f"Metrike {', '.join(missing)} ne postoje u {path.name}.")
-        for r in reader:
-            name = r.get("model_name", "")
-            if not name:
-                continue
-            rec = {}
-            for m in metrics:
-                v = to_float(r.get(m))
-                if v is not None:
-                    rec[m] = v
-            if len(rec) == len(metrics):
-                out[name] = rec
-                params[name] = to_float(r.get("params"))
+    for r in read_rows(path, metrics):
+        name = r.get("model_name", "")
+        if not name:
+            continue
+        rec = {m: to_float(r.get(m)) for m in metrics}
+        if all(v is not None for v in rec.values()):
+            out[name] = rec
+            params[name] = to_float(r.get("params"))
     return out, params
-
-
-def short_name(name: str) -> str:
-    """Ime za prikaz: 'SR_FastEDSR_2_64' -> 'FastEDSR 2/64' (bez jpeg/scale/_r)."""
-    parts = [p for p in name.split("_") if p != "jpeg"]
-    if parts and parts[0] == "SR":
-        parts = parts[1:]
-    parts = [p for p in parts if not re.fullmatch(r"\d+x", p) and p != "r"]
-    if not parts:
-        return name
-    arch, rest = parts[0], parts[1:]
-    return f"{arch} {'/'.join(rest)}" if rest else arch
 
 
 def base_name(name: str) -> str:
     """jpeg model -> bazni parnjak (bez 'jpeg' tokena), zadrzava SR_ prefiks."""
     return "_".join(p for p in name.split("_") if p != "jpeg")
+
+
+def short_name(name: str) -> str:
+    """Ime za prikaz: 'SR_FastEDSR_jpeg_2_64' -> 'FastEDSR 2/64' (bez jpeg/scale/_r)."""
+    return display_name(base_name(name))
 
 
 def disp_labels(left_label, right_label, show_base):
@@ -216,31 +161,19 @@ def disp_names(left_name, right_name, show_base):
     return ([base_name(left_name)] if show_base else []) + [left_name, right_name]
 
 
-def main():
-    if not CONFIGS:
-        sys.exit("CONFIGS je prazna - dodaj bar jednu konfiguraciju.")
-    for i, cfg_dict in enumerate(CONFIGS):
-        cfg = SimpleNamespace(**{**CONFIG_DEFAULTS, **cfg_dict})
-        if i:
-            print("\n" + "=" * 96 + "\n")
-        print(f"### Konfiguracija: {cfg.name}\n")
-        run_config(cfg)
+def prec(cfg, metric):
+    return prec_for(cfg.decimals, metric, DEFAULT_DECIMALS)
 
 
 def run_config(cfg):
-    for m in cfg.metrics:
-        if m not in METRIC_INFO:
-            sys.exit(f"Nepoznata metrika '{m}'. Podrzane: {', '.join(METRIC_INFO)}")
+    check_metrics(cfg.metrics)
     if cfg.pairing not in PAIRINGS:
         sys.exit(f"Nepoznat pairing '{cfg.pairing}'. Podrzano: {', '.join(PAIRINGS)}")
     partner_fn, left_label, right_label = PAIRINGS[cfg.pairing]
     # Bazna kolona ima smisla samo kad su levi modeli jpeg (pairing jpeg_vs_s).
-    show_base = getattr(cfg, "show_base", False) and cfg.pairing == "jpeg_vs_s"
+    show_base = cfg.show_base and cfg.pairing == "jpeg_vs_s"
 
-    results_path = resolve_results(cfg.results)
-    if not results_path.exists():
-        sys.exit(f"CSV ne postoji: {results_path}")
-
+    results_path = require_results(cfg.results)
     rows, params = load_rows(results_path, cfg.metrics)
 
     # Parovi (levi, desni), sortirani po broju parametara levog modela (rastuce).
@@ -259,28 +192,17 @@ def run_config(cfg):
     tex_path = Path(cfg.tex_out) if cfg.tex_out else get_results_path(
         f"analysis/jpeg/jpeg_table_{cfg.name}.tex")
     tex_path.parent.mkdir(parents=True, exist_ok=True)
-    tex_path.write_text(tex_table(cfg, rows, pairs, left_label, right_label, show_base),
+    tex_path.write_text(build_table(cfg, rows, pairs, left_label, right_label, show_base),
                         encoding="utf-8")
     print(f"LaTeX tabela: {tex_path}")
 
 
-def prec_for(cfg, metric):
-    """Broj decimala za metriku prema cfg.decimals (None/int/dict)."""
-    d = getattr(cfg, "decimals", None)
-    if d is None:
-        return METRIC_INFO[metric][0]
-    if isinstance(d, dict):
-        return d.get(metric, METRIC_INFO[metric][0])
-    return d
-
-
 def best_val(rows, names, m):
     """Najbolja vrednost metrike m medju prisutnim modelima iz `names`."""
-    _, higher, _ = METRIC_INFO[m]
     present = [rows[n][m] for n in names if n in rows]
     if not present:
         return None
-    return (max if higher else min)(present)
+    return (max if higher_is_better(m) else min)(present)
 
 
 def avg_delta_map(rows, pairs, metrics, a_of, b_of):
@@ -295,7 +217,7 @@ def avg_delta_map(rows, pairs, metrics, a_of, b_of):
 
 
 def _delta_items_plain(cfg, avg):
-    return ",  ".join(f"{m} {zf(avg[m], f'+.{prec_for(cfg, m)}f')}"
+    return ",  ".join(f"{m} {zf(avg[m], f'+.{prec(cfg, m)}f')}"
                       for m in cfg.metrics if avg[m] is not None)
 
 
@@ -305,35 +227,31 @@ def _delta_items_tex(cfg, avg):
         if avg[m] is None:
             continue
         sign = "-" if avg[m] < 0 else "+"
-        items.append(f"{m} ${sign}${zf(abs(avg[m]), f'.{prec_for(cfg, m)}f')}")
+        items.append(f"{m} ${sign}${zf(abs(avg[m]), f'.{prec(cfg, m)}f')}")
     return ", ".join(items)
+
+
+def _avg_deltas(cfg, rows, pairs, show_base):
+    """[(oznaka umanjioca ili None za levi, prosecne razlike)] za konzolu i LaTeX."""
+    out = [(None, avg_delta_map(rows, pairs, cfg.metrics, lambda l, r: r, lambda l, r: l))]
+    if show_base:
+        out.append(("bazni", avg_delta_map(rows, pairs, cfg.metrics, lambda l, r: r,
+                                           lambda l, r: base_name(l))))
+    return out
 
 
 def avg_delta_line(cfg, rows, pairs, left_label, right_label, show_base):
     """Tekstualne recenice sa prosecnom razlikom po metrici (za konzolu)."""
-    out = [f"Prosecna razlika ({right_label} - {left_label}) po metrici: "
-           + _delta_items_plain(cfg, avg_delta_map(
-        rows, pairs, cfg.metrics, lambda l, r: r, lambda l, r: l))]
-    if show_base:
-        out.append(f"Prosecna razlika ({right_label} - bazni) po metrici: "
-                   + _delta_items_plain(cfg, avg_delta_map(
-            rows, pairs, cfg.metrics, lambda l, r: r,
-            lambda l, r: base_name(l))))
-    return "\n".join(out)
+    return "\n".join(f"Prosecna razlika ({right_label} - {sub or left_label}) po metrici: "
+                     + _delta_items_plain(cfg, avg)
+                     for sub, avg in _avg_deltas(cfg, rows, pairs, show_base))
 
 
 def avg_delta_tex(cfg, rows, pairs, left_label, right_label, show_base):
     """LaTeX recenice sa prosecnom razlikom po metrici (ispod tabele)."""
-    esc = lambda s: s.replace("_", r"\_")
-    out = [r"\noindent Prosečna razlika (" + esc(right_label) + r" $-$ "
-           + esc(left_label) + "): " + _delta_items_tex(cfg, avg_delta_map(
-        rows, pairs, cfg.metrics, lambda l, r: r, lambda l, r: l)) + "."]
-    if show_base:
-        out.append(r"\noindent Prosečna razlika (" + esc(right_label) + r" $-$ bazni): "
-                   + _delta_items_tex(cfg, avg_delta_map(
-            rows, pairs, cfg.metrics, lambda l, r: r,
-            lambda l, r: base_name(l))) + ".")
-    return "\n\n".join(out)
+    return "\n\n".join(r"\noindent Prosečna razlika (" + tex_name(right_label) + r" $-$ "
+                       + tex_name(sub or left_label) + "): " + _delta_items_tex(cfg, avg) + "."
+                       for sub, avg in _avg_deltas(cfg, rows, pairs, show_base))
 
 
 def report(cfg, results_path, rows, pairs, left_label, right_label, show_base):
@@ -357,85 +275,68 @@ def report(cfg, results_path, rows, pairs, left_label, right_label, show_base):
         names = disp_names(left, right, show_base)
         line = f"{short_name(left):<26}"
         for m in cfg.metrics:
-            prec = prec_for(cfg, m)
+            p = prec(cfg, m)
             for n in names:
                 v = rows.get(n, {}).get(m)
-                line += f" {'-':>12}" if v is None else f" {zf(v, f'>12.{prec}f')}"
-            line += f" {zf(rows[right][m] - rows[left][m], f'>+11.{prec}f')}"
+                line += f" {'-':>12}" if v is None else f" {zf(v, f'>12.{p}f')}"
+            line += f" {zf(rows[right][m] - rows[left][m], f'>+11.{p}f')}"
         print(line)
 
     # Prosecna razlika po metrici (right - left).
     print("-" * len(head))
     avg = f"{'PROSEK d':<26}"
     for m in cfg.metrics:
-        prec = prec_for(cfg, m)
         deltas = [rows[r][m] - rows[l][m] for l, r in pairs]
         blank = " " * 12
         avg += " " + " ".join([blank] * len(labels))
-        avg += f" {zf(sum(deltas) / len(deltas), f'>+11.{prec}f')}"
+        avg += f" {zf(sum(deltas) / len(deltas), f'>+11.{prec(cfg, m)}f')}"
     print(avg)
     print()
     print(avg_delta_line(cfg, rows, pairs, left_label, right_label, show_base))
     print()
 
     print("LaTeX tabela (za kopiranje):")
-    print(tex_table(cfg, rows, pairs, left_label, right_label, show_base))
+    print(build_table(cfg, rows, pairs, left_label, right_label, show_base))
 
 
-def tex_table(cfg, rows, pairs, left_label, right_label, show_base):
+def build_table(cfg, rows, pairs, left_label, right_label, show_base):
     """Vrati LaTeX tabelu (table[H] + tabular); bolduje najbolju vrednost po metrici."""
     labels = disp_labels(left_label, right_label, show_base)
     per = len(labels)  # kolona vrednosti po metrici (2 ili 3)
     ncol = len(cfg.metrics)
-    caption = cfg.caption or "Poređenje JPEG modela"
-    label = cfg.label or f"tab:jpeg_{cfg.name}"
 
     # Grupisano zaglavlje: po `per` kolona za svaku metriku.
-    top = ["Model"]
-    for m in cfg.metrics:
-        _, _, arrow = METRIC_INFO[m]
-        top.append(r"\multicolumn{" + str(per) + r"}{c}{" + f"{m} {arrow}" + "}")
+    top = ["Model"] + [r"\multicolumn{" + str(per) + r"}{c}{" + f"{m} {arrow(m)}" + "}"
+                       for m in cfg.metrics]
     cmids = "".join(r"\cmidrule(lr){" + f"{2 + per * k}-{1 + per * (k + 1)}" + "}"
                     for k in range(ncol))
-    sub_labels = " & ".join(lab.replace("_", r"\_") for lab in labels)
-    sub = [""] + [sub_labels] * ncol
+    sub = [""] + [" & ".join(tex_name(lab) for lab in labels)] * ncol
 
-    def fmt(v, prec, better):
+    def fmt(v, p, better):
         if v is None:
             return "-"
-        s = zf(v, f".{prec}f")
+        s = zf(v, f".{p}f")
         return r"\textbf{" + s + "}" if better else s
 
-    lines = [r"\begin{table}[H]",
-             r"    \begin{tabular}{l" + ("c" * per) * ncol + "}",
-             r"        \toprule",
-             "        " + " & ".join(top) + r" \\",
-             "        " + cmids,
-             "        " + " & ".join(sub) + r" \\",
-             r"        \midrule"]
-
+    body = []
     for left, right in pairs:
         names = disp_names(left, right, show_base)
-        cells = [short_name(left).replace("_", r"\_")]
+        cells = [tex_name(short_name(left))]
         for m in cfg.metrics:
-            prec = prec_for(cfg, m)
+            p = prec(cfg, m)
             best = best_val(rows, names, m)
             present = [rows[n][m] for n in names if n in rows]
             varies = len(set(present)) > 1
             for n in names:
                 v = rows.get(n, {}).get(m)
-                cells.append(fmt(v, prec, v is not None and varies and v == best))
-        lines.append("        " + " & ".join(cells) + r" \\")
+                cells.append(fmt(v, p, v is not None and varies and v == best))
+        body.append(tex_row(cells))
 
-    lines += [r"        \bottomrule",
-              r"    \end{tabular}",
-              f"    \\caption{{{caption}}}",
-              f"    \\label{{{label}}}",
-              r"\end{table}",
-              "",
-              avg_delta_tex(cfg, rows, pairs, left_label, right_label, show_base)]
-    return "\n".join(lines)
+    table = tex_table("l" + ("c" * per) * ncol, [tex_row(top), cmids, tex_row(sub)], body,
+                      cfg.caption or "Poređenje JPEG modela", cfg.label or f"tab:jpeg_{cfg.name}",
+                      size=None, tabcolsep=None, centering=False, caption_below=True)
+    return table + "\n\n" + avg_delta_tex(cfg, rows, pairs, left_label, right_label, show_base)
 
 
 if __name__ == "__main__":
-    main()
+    run_configs(CONFIGS, CONFIG_DEFAULTS, run_config)

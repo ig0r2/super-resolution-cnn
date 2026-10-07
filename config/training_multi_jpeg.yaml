@@ -17,21 +17,26 @@ defaults:
     val_preload: True
 
 models:
+#  - name: SR_RFDN_Multi
+#    checkpoint_name: SR_RFDN_jpeg_2_128
+#    params:
+#      num_blocks: 2
+#      nf: 128
   - name: SR_RFDN_Multi
-    checkpoint_name: SR_RFDN_jpeg_2_128
+    checkpoint_name: SR_RFDN_jpeg_2_128_s
     params:
       num_blocks: 2
       nf: 128
-  - name: SR_RFDN_Multi
-    checkpoint_name: SR_RFDN_jpeg_2_256
-    params:
-      num_blocks: 2
-      nf: 256
-  - name: SR_RFDN_Multi
-    checkpoint_name: SR_RFDN_jpeg_4_128
-    params:
-      num_blocks: 4
-      nf: 128
+#  - name: SR_RFDN_Multi
+#    checkpoint_name: SR_RFDN_jpeg_2_256
+#    params:
+#      num_blocks: 2
+#      nf: 256
+#  - name: SR_RFDN_Multi
+#    checkpoint_name: SR_RFDN_jpeg_4_128
+#    params:
+#      num_blocks: 4
+#      nf: 128
 
 #  - name: SR_FastEDSR_Multi
 #    checkpoint_name: SR_FastEDSR_jpeg_4_32_s_384

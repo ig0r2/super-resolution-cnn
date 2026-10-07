@@ -5,13 +5,16 @@ class _BaseVideoPerfEvaluator:
     """
     Shared plumbing for the per-frame video SR speed evaluators: the common constructor, the fixed
     reference screen used to derive a monitor-independent display-downscale target, and the
-    decode/sr/display/total summary. Subclasses implement `evaluate()` (the decode + SR + display
+    decode/sr/display/total summary. 'display' includes presenting the frame in a visible window
+    (cv2.imshow + waitKeyEx, or the GL draw + buffer swap), as the players do every frame. Subclasses implement `evaluate()` (the decode + SR + display
     timing loop differs per pipeline) and return `self._summarize(totals)`.
     """
 
     # Reference screen used to derive the display downscale target, so the "display" measurement is
     # deterministic and independent of whatever monitor the eval happens to run on.
     _ref_screen = (1080, 1920)
+    # Visible window the 'display' stage presents into (windowed at the display target size).
+    _window_name = "eval"
 
     def __init__(self, checkpoint_path, video_path, upscale_factor=2,
                  warmup_runs=20, iterations=200):

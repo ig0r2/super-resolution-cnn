@@ -1,0 +1,133 @@
+defaults:
+  mode: psnr
+  multiscale: false
+  jpeg_degradation: false
+
+  training:
+    patch_size: 96
+    batch_size: 16
+    epochs: 800
+    lr: 0.0001
+    scheduler_milestones: [ 300, 600 ]
+    validate_every: 50
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
+
+models:
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_0_32
+    params:
+      upscale_factor: 2
+      num_blocks: 0
+      nf: 32
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_0_48
+    params:
+      upscale_factor: 2
+      num_blocks: 0
+      nf: 48
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_1_32
+    params:
+      upscale_factor: 2
+      num_blocks: 1
+      nf: 32
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_1_48
+    params:
+      upscale_factor: 2
+      num_blocks: 1
+      nf: 48
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_1_128
+    params:
+      upscale_factor: 2
+      num_blocks: 1
+      nf: 128
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_2_16
+    params:
+      upscale_factor: 2
+      num_blocks: 2
+      nf: 16
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_2_28
+    params:
+      upscale_factor: 2
+      num_blocks: 2
+      nf: 28
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_2_128
+    params:
+      upscale_factor: 2
+      num_blocks: 2
+      nf: 128
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_2_256
+    params:
+      upscale_factor: 2
+      num_blocks: 2
+      nf: 256
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_4_16
+    params:
+      upscale_factor: 2
+      num_blocks: 4
+      nf: 16
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_4_28
+    params:
+      upscale_factor: 2
+      num_blocks: 4
+      nf: 28
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_4_48
+    params:
+      upscale_factor: 2
+      num_blocks: 4
+      nf: 48
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_4_64
+    params:
+      upscale_factor: 2
+      num_blocks: 4
+      nf: 64
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_4_128
+    params:
+      upscale_factor: 2
+      num_blocks: 4
+      nf: 128
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_4_256
+    params:
+      upscale_factor: 2
+      num_blocks: 4
+      nf: 256
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_6_28
+    params:
+      upscale_factor: 2
+      num_blocks: 6
+      nf: 28
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_6_64
+    params:
+      upscale_factor: 2
+      num_blocks: 6
+      nf: 64
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_8_48
+    params:
+      upscale_factor: 2
+      num_blocks: 8
+      nf: 48
+  - name: SR_ABPN
+    checkpoint_name: SR_ABPN_2x_10_48
+    params:
+      upscale_factor: 2
+      num_blocks: 10
+      nf: 48

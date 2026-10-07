@@ -1,5 +1,45 @@
 import matplotlib.pyplot as plt
+from matplotlib.ticker import Formatter
 from utils.path import get_logs_path
+
+
+def dot_to_comma(s: str) -> str:
+    """Decimalna tacka -> zarez; u mathtext-u '{,}' da ne doda razmak posle zareza."""
+    return s.replace(".", "{,}") if "$" in s else s.replace(".", ",")
+
+
+class _CommaFormatter(Formatter):
+    """Omotac oko postojeceg formatera koji decimalnu tacku menja zarezom."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def set_axis(self, axis):
+        super().set_axis(axis)
+        self.inner.set_axis(axis)
+
+    def set_locs(self, locs):
+        self.inner.set_locs(locs)
+
+    def __call__(self, x, pos=None):
+        return dot_to_comma(self.inner(x, pos))
+
+    def format_ticks(self, values):
+        return [dot_to_comma(s) for s in self.inner.format_ticks(values)]
+
+    def get_offset(self):
+        return dot_to_comma(self.inner.get_offset())
+
+
+def comma_ticks(fig):
+    """Oznake na svim osama figure ispisuje sa decimalnim zarezom (pozvati pre savefig)."""
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            for get, set_ in ((axis.get_major_formatter, axis.set_major_formatter),
+                              (axis.get_minor_formatter, axis.set_minor_formatter)):
+                f = get()
+                if not isinstance(f, _CommaFormatter):
+                    set_(_CommaFormatter(f))
 
 
 def smooth_curve(points, factor=0.8):

@@ -9,28 +9,23 @@ JPEG-trenirani modeli su iznad standardnih, a deo standardnih modela pada i ispo
 bazne interpolacije, jer izostravaju blok-artefakte umesto da ih potiskuju.
 """
 
-import csv
-import math
 import sys
 from pathlib import Path
-from types import SimpleNamespace
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from utils.analysis.plotting import save_fig, set_param_ticks, setup_style
+import matplotlib.pyplot as plt
+
+from utils.analysis.config import run_configs
+from utils.analysis.data import derive_label, name_filter, read_rows, require_results, to_float
+from utils.analysis.fmt import zf
+from utils.analysis.metrics import check_metrics, higher_is_better
+from utils.analysis.names import INTERPOLATIONS
 from utils.path import get_results_path
 
 DEFAULT_EXCLUDE = ["GAN", "ESRGAN"]
-METRICS = ("SSIM", "PSNR", "LPIPS")
-BASELINE_NAMES = ("nearest", "bilinear", "bicubic", "lanczos")
-
 STD_COLOR, JPEG_COLOR = "#1b6ca8", "#e8702a"
-PARAM_TICKS = [1e3, 1e4, 1e5, 1e6, 1e7]
-KNOWN_DATASETS = ("Set5", "Set14", "BSD100", "Urban100", "DIV2K")
 
 # Podrazumevane vrednosti za svako polje konfiguracije. Svaka stavka u CONFIGS
 # prepisuje samo ono sto joj treba; ostalo se uzima odavde.
@@ -78,107 +73,41 @@ CONFIGS = [
 ##############################################
 
 
-def resolve_results(name: str) -> Path:
-    p = Path(name)
-    if p.is_absolute() or p.exists():
-        return p
-    return get_results_path(name)
-
-
-def zf(value, spec) -> str:
-    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
-    return format(value, spec).replace(".", ",")
-
-
-def arch_of(name: str) -> str:
-    parts = name.split("_")
-    if parts and parts[0] == "SR":
-        parts = parts[1:]
-    return parts[0] if parts else name
-
-
-def to_float(x):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
-
-
-def derive_label(results_name, override):
-    if override is not None:
-        return override
-    parts = Path(results_name).stem.split("_")
-    factor = next((p[:-1] for p in parts if p.endswith("x") and p[:-1].isdigit()), None)
-    dataset = next((p for p in parts if p in KNOWN_DATASETS), None)
-    return ", ".join(b for b in (dataset, f"$\\times${factor}" if factor else None) if b)
-
-
-def main():
-    if not CONFIGS:
-        sys.exit("CONFIGS je prazna - dodaj bar jednu konfiguraciju.")
-    for i, cfg_dict in enumerate(CONFIGS):
-        cfg = SimpleNamespace(**{**CONFIG_DEFAULTS, **cfg_dict})
-        if i:
-            print("\n" + "=" * 60 + "\n")
-        print(f"### Konfiguracija: {cfg.name}")
-        run_config(cfg)
-
-
 def run_config(cfg):
-    if cfg.metric not in METRICS:
-        sys.exit(f"Nepoznata metrika '{cfg.metric}'. Podrzane: {', '.join(METRICS)}")
-
-    exclude = DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude
-    archs_filter = set(cfg.archs) if cfg.archs else None
-    include = cfg.include or None
+    check_metrics([cfg.metric])
+    keep = name_filter(DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude, cfg.archs, cfg.include)
     draw_baseline = cfg.show_baseline and cfg.baseline and cfg.baseline != "none"
-
-    path = resolve_results(cfg.results)
-    if not path.exists():
-        sys.exit(f"CSV ne postoji: {path}")
+    path = require_results(cfg.results)
 
     std, jpeg = [], []
     baseline_val = None
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if cfg.metric not in reader.fieldnames:
-            sys.exit(f"Metrika '{cfg.metric}' ne postoji u {path.name}.")
-        for r in reader:
-            name = r.get("model_name", "")
-            if not name:
-                continue
-            v = to_float(r.get(cfg.metric))
-            if v is None:
-                continue
-            if draw_baseline and name == cfg.baseline:
-                baseline_val = v
-            if name in BASELINE_NAMES:
-                continue
-            if any(sub in name for sub in exclude):
-                continue
-            if include and not any(sub in name for sub in include):
-                continue
-            if archs_filter and arch_of(name) not in archs_filter:
-                continue
-            params = to_float(r.get("params"))
-            if not params:
-                continue
-            if cfg.min_params and params < cfg.min_params:
-                continue
-            if cfg.max_params and params > cfg.max_params:
-                continue
-            (jpeg if "jpeg" in name else std).append((params, v))
+    for r in read_rows(path, [cfg.metric]):
+        name = r.get("model_name", "")
+        v = to_float(r.get(cfg.metric))
+        if not name or v is None:
+            continue
+        if draw_baseline and name == cfg.baseline:
+            baseline_val = v
+        if name in INTERPOLATIONS or not keep(name):
+            continue
+        params = to_float(r.get("params"))
+        if not params:
+            continue
+        if cfg.min_params and params < cfg.min_params:
+            continue
+        if cfg.max_params and params > cfg.max_params:
+            continue
+        (jpeg if "jpeg" in name else std).append((params, v))
 
     if not std and not jpeg:
         sys.exit("Nema modela za zadate filtere.")
     if draw_baseline and baseline_val is None:
         print(f"Upozorenje: bazni red '{cfg.baseline}' nije nadjen u CSV-u.")
 
-    maximize = cfg.metric != "LPIPS"
-    label = derive_label(cfg.results, cfg.label)
+    maximize = higher_is_better(cfg.metric)
+    label = cfg.label if cfg.label is not None else derive_label(cfg.results)
 
-    plt.rcParams.update({"font.size": 11, "axes.grid": True,
-                         "grid.alpha": 0.25, "figure.dpi": cfg.dpi})
+    setup_style(cfg.dpi)
     fig, ax = plt.subplots(figsize=(7.6, 5.0))
 
     for pts, color, marker, lab in (
@@ -195,10 +124,7 @@ def run_config(cfg):
                 fontsize=8.5, ha="right", va="bottom")
 
     ax.set_xscale("log")
-    all_p = [p for p, _ in std + jpeg]
-    xt = [t for t in PARAM_TICKS if min(all_p) * 0.9 <= t <= max(all_p) * 1.1]
-    ax.set_xticks(xt)
-    ax.set_xticklabels([f"$10^{{{int(round(math.log10(t)))}}}$" for t in xt])
+    set_param_ticks(ax, [p for p, _ in std + jpeg])
 
     if not maximize:
         ax.invert_yaxis()
@@ -210,11 +136,7 @@ def run_config(cfg):
     ax.legend(loc="lower right" if maximize else "upper right", fontsize=9)
     fig.tight_layout()
 
-    out_name = cfg.out or f"jpeg_plots_{cfg.name}.png"
-    out_path = get_results_path("analysis/jpeg") / out_name
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path)
-    plt.close(fig)
+    out_path = save_fig(fig, get_results_path("analysis/jpeg") / (cfg.out or f"jpeg_plots_{cfg.name}.png"))
 
     print(f"Izvor: {path}  (metrika {cfg.metric})")
     print(f"Standardnih: {len(std)}, JPEG-treniranih: {len(jpeg)}")
@@ -227,4 +149,4 @@ def run_config(cfg):
 
 
 if __name__ == "__main__":
-    main()
+    run_configs(CONFIGS, CONFIG_DEFAULTS, run_config)

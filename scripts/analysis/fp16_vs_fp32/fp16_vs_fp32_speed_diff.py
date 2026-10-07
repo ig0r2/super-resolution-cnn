@@ -8,28 +8,25 @@ ubrzanja naspram broja parametara (log osa) sa linijom na 1.0 koja razdvaja
 ubrzanje (iznad) od usporenja (ispod). Vrednosti > 1 znace da je FP16 brzi.
 """
 
-import csv
-import math
 import statistics
 import sys
 from itertools import cycle
 from pathlib import Path
-from types import SimpleNamespace
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from utils.analysis.plotting import save_fig, set_param_ticks, setup_style
+import matplotlib.pyplot as plt
+
+from utils.analysis.config import run_configs
+from utils.analysis.data import name_filter, read_rows, require_results, to_float
+from utils.analysis.fmt import zf
 from utils.logger import Logger
 from utils.path import get_results_path
 
 DEFAULT_EXCLUDE = ["GAN", "ESRGAN", "jpeg"]
 RES_COLORS = ["#1b6ca8", "#e8702a", "#3c9a5f", "#b13b8f"]
 RES_MARKERS = ["o", "s", "^", "D"]
-PARAM_TICKS = [1e3, 1e4, 1e5, 1e6, 1e7]
 
 # Podrazumevane vrednosti za svako polje konfiguracije. Svaka stavka u CONFIGS
 # prepisuje samo ono sto joj treba; ostalo se uzima odavde.
@@ -70,99 +67,36 @@ CONFIGS = [
 ##############################################
 
 
-def resolve_results(name: str) -> Path:
-    p = Path(name)
-    if p.is_absolute() or p.exists():
-        return p
-    return get_results_path(name)
-
-
-def arch_of(name: str) -> str:
-    parts = name.split("_")
-    if parts and parts[0] == "SR":
-        parts = parts[1:]
-    return parts[0] if parts else name
-
-
-def to_float(x):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
-
-
-def zf(value, spec) -> str:
-    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
-    return format(value, spec).replace(".", ",")
-
-
-def keep(name, exclude, archs, include):
-    if not name:
-        return False
-    if any(sub in name for sub in exclude):
-        return False
-    if include and not any(sub in name for sub in include):
-        return False
-    if archs and arch_of(name) not in archs:
-        return False
-    return True
-
-
-def load_side(path: Path, runtype, res_cols, exclude, archs, include, cfg):
+def load_side(path: Path, runtype, keep, cfg):
     """Vrati {model_name: {"params": p, res: fps, ...}} za jednu precinost."""
     out = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if runtype is not None and "runtype" not in reader.fieldnames:
-            sys.exit(f"Kolona 'runtype' ne postoji u {path.name}, a zadat je runtype filter.")
-        missing = [c for c in res_cols if c not in reader.fieldnames]
-        if missing:
-            usable = [c for c in reader.fieldnames if c not in ("model_name", "params", "runtype")]
-            sys.exit(f"Nedostaju kolone {', '.join(missing)} u {path.name}. "
-                     f"Dostupne: {', '.join(usable)}")
-        for r in reader:
-            name = r.get("model_name", "")
-            if not keep(name, exclude, archs, include):
-                continue
-            if runtype is not None and r.get("runtype", "") != runtype:
-                continue
-            params = to_float(r.get("params"))
-            if not params:
-                continue
-            if cfg.min_params and params < cfg.min_params:
-                continue
-            if cfg.max_params and params > cfg.max_params:
-                continue
-            rec = {"params": params}
-            for col in res_cols:
-                v = to_float(r.get(col))
-                if v:
-                    rec[col] = v
-            out[name] = rec
+    required = list(cfg.res) + (["runtype"] if runtype is not None else [])
+    for r in read_rows(path, required):
+        name = r.get("model_name", "")
+        if not keep(name):
+            continue
+        if runtype is not None and r.get("runtype", "") != runtype:
+            continue
+        params = to_float(r.get("params"))
+        if not params:
+            continue
+        if cfg.min_params and params < cfg.min_params:
+            continue
+        if cfg.max_params and params > cfg.max_params:
+            continue
+        rec = {"params": params}
+        for col in cfg.res:
+            v = to_float(r.get(col))
+            if v:
+                rec[col] = v
+        out[name] = rec
     return out
 
 
-def main():
-    if not CONFIGS:
-        sys.exit("CONFIGS je prazna — dodaj bar jednu konfiguraciju.")
-    for i, cfg_dict in enumerate(CONFIGS):
-        cfg = SimpleNamespace(**{**CONFIG_DEFAULTS, **cfg_dict})
-        if i:
-            print("\n" + "=" * 92 + "\n")
-        print(f"### Konfiguracija: {cfg.name}\n")
-        run_config(cfg)
-
-
 def run_config(cfg):
-    exclude = DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude
-    archs_filter = set(cfg.archs) if cfg.archs else None
-    include = cfg.include or None
-
-    fp16_path = resolve_results(cfg.fp16_results)
-    fp32_path = resolve_results(cfg.fp32_results)
-    for p in (fp16_path, fp32_path):
-        if not p.exists():
-            sys.exit(f"CSV ne postoji: {p}")
+    keep = name_filter(DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude, cfg.archs, cfg.include)
+    fp16_path = require_results(cfg.fp16_results)
+    fp32_path = require_results(cfg.fp32_results)
 
     # Ako obe precinosti dolaze iz istog fajla, moraju se razlikovati po runtype.
     if fp16_path == fp32_path and cfg.fp16_runtype == cfg.fp32_runtype:
@@ -170,8 +104,8 @@ def run_config(cfg):
                  "Zadaj fp16_runtype i fp32_runtype, ili odvojene "
                  "fp16_results / fp32_results.")
 
-    fp16 = load_side(fp16_path, cfg.fp16_runtype, cfg.res, exclude, archs_filter, include, cfg)
-    fp32 = load_side(fp32_path, cfg.fp32_runtype, cfg.res, exclude, archs_filter, include, cfg)
+    fp16 = load_side(fp16_path, cfg.fp16_runtype, keep, cfg)
+    fp32 = load_side(fp32_path, cfg.fp32_runtype, keep, cfg)
     common = sorted(set(fp16) & set(fp32))
     if not common:
         sys.exit("Nema modela prisutnih u obe precinosti (proveri runtype/fajlove/filtre).")
@@ -233,8 +167,7 @@ def report(summary, fp16_path, fp32_path, n_common):
 
 def plot(series, cfg, plot_name):
     """Rasejani grafik ubrzanja (FP16/FP32) naspram broja parametara (log osa)."""
-    plt.rcParams.update({"font.size": 11, "axes.grid": True,
-                         "grid.alpha": 0.25, "figure.dpi": cfg.dpi})
+    setup_style(cfg.dpi)
     fig, ax = plt.subplots(figsize=(7.6, 5.0))
     colors = cycle(RES_COLORS)
     markers = cycle(RES_MARKERS)
@@ -255,21 +188,15 @@ def plot(series, cfg, plot_name):
             color="#c0392b", fontsize=8.5, ha="right", va="bottom")
 
     ax.set_xscale("log")
-    xt = [t for t in PARAM_TICKS if min(all_p) * 0.9 <= t <= max(all_p) * 1.1]
-    ax.set_xticks(xt)
-    ax.set_xticklabels([f"$10^{{{int(round(math.log10(t)))}}}$" for t in xt])
+    set_param_ticks(ax, all_p)
     ax.set_xlabel("Broj parametara (log)")
     ax.set_ylabel("ubrzanje (FPS FP16 / FPS FP32)")
     ax.set_title("Ubrzanje FP16 nad FP32")
     ax.legend(loc="best", fontsize=9)
     fig.tight_layout()
 
-    out_path = get_results_path("analysis/fp16_vs_fp32") / plot_name
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path)
-    plt.close(fig)
-    return out_path
+    return save_fig(fig, get_results_path("analysis/fp16_vs_fp32") / plot_name)
 
 
 if __name__ == "__main__":
-    main()
+    run_configs(CONFIGS, CONFIG_DEFAULTS, run_config)

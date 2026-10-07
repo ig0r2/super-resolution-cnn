@@ -1,0 +1,73 @@
+defaults:
+  mode: psnr
+  multiscale: false
+  jpeg_degradation: false
+
+  training:
+    patch_size: 96
+    batch_size: 16
+    epochs: 800
+    lr: 0.0001
+    scheduler_milestones: [ 300, 600 ]
+    validate_every: 100
+
+  data:
+    num_workers: 2
+    train_preload: True
+    val_preload: True
+
+models:
+  #  - name: SR_VDSR
+  #    checkpoint_name: SR_VDSR_2x_18_64
+  #    params:
+  #      upscale_factor: 2
+  #      num_blocks: 18
+  #      nf: 64
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_0_32
+    params:
+      upscale_factor: 2
+      num_blocks: 0
+      nf: 32
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_0_64
+    params:
+      upscale_factor: 2
+      num_blocks: 0
+      nf: 64
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_3_64
+    params:
+      upscale_factor: 2
+      num_blocks: 3
+      nf: 64
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_5_32
+    params:
+      upscale_factor: 2
+      num_blocks: 5
+      nf: 32
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_5_64
+    params:
+      upscale_factor: 2
+      num_blocks: 5
+      nf: 64
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_10_32
+    params:
+      upscale_factor: 2
+      num_blocks: 10
+      nf: 32
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_10_64
+    params:
+      upscale_factor: 2
+      num_blocks: 10
+      nf: 64
+  - name: SR_VDSR
+    checkpoint_name: SR_VDSR_2x_10_128
+    params:
+      upscale_factor: 2
+      num_blocks: 10
+      nf: 128

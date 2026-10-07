@@ -170,8 +170,10 @@ class BaseTrainer:
     def _load_checkpoint(self):
         path = self._ckpt_path('_latest')
         if not path.exists():
-            print("No checkpoint found")
-            return
+            path = self._ckpt_path()
+            if not path.exists():
+                print("No checkpoint found")
+                return
         ckpt = torch.load(path, map_location=self.device)
         self.model.load_state_dict(ckpt['model_state_dict'])
         self.optimizer.load_state_dict(ckpt['optimizer_state_dict'])

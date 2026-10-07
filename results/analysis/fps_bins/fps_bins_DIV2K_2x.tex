@@ -1,0 +1,45 @@
+% Izvor: results_2x_DIV2K_half.csv   modela: 147   bin: FPS 480p
+
+\begin{table}[H]
+    \centering
+    \caption{Najbolji model po metrici i opsegu brzine (FPS 480p) (DIV2K, $\times2$).}
+    \label{tab:fps_bins_best_model_2x_DIV2K}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        Opseg FPS 480p & Najbolji SSIM $\uparrow$ & Najbolji LPIPS $\downarrow$ \\
+        \midrule
+        $<$30 & $\text{RFDN}_{\text{4/256}}$ (0,936) & $\text{EDSR}_{\text{32/256}}$ (0,088) \\
+        30--45 & $\text{RFDN}_{\text{1/256}}$ (0,933) & $\text{RFDN}_{\text{4/96}}$ (0,097) \\
+        45--60 & $\text{RFDN}_{\text{2/128}}$ (0,932) & $\text{ABPN}_{\text{4/256}}$ (0,093) \\
+        60--90 & $\text{EDSR}_{\text{16/64}}$ (0,933) & $\text{RFDN}_{\text{2/96}}$ (0,096) \\
+        90--120 & $\text{FastEDSR}_{\text{NN/4/128}}$ (0,932) & $\text{FastEDSR}_{\text{4/128}}$ (0,094) \\
+        120--250 & $\text{ABPN}_{\text{4/128}}$ (0,931) & $\text{ABPN}_{\text{4/128}}$ (0,095) \\
+        250--500 & $\text{FastEDSR}_{\text{4/64}}$ (0,930) & $\text{FastEDSR}_{\text{4/64}}$ (0,096) \\
+        $>$500 & $\text{FastEDSR}_{\text{4/32}}$ (0,927) & $\text{ABPN}_{\text{4/48}}$ (0,104) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Arhitektura sa najboljim prosekom metrike po opsegu brzine (FPS 480p) (DIV2K, $\times2$).}
+    \label{tab:fps_bins_best_arch_2x_DIV2K}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{@{}lll@{}}
+        \toprule
+        Opseg FPS 480p & Najbolji prosek SSIM $\uparrow$ & Najbolji prosek LPIPS $\downarrow$ \\
+        \midrule
+        $<$30 & RFDN (0,935) & IMDN (0,092) \\
+        30--45 & IMDN (0,932) & IMDN (0,097) \\
+        45--60 & ABPN (0,932) & ABPN (0,094) \\
+        60--90 & EDSR (0,931) & RFDN (0,099) \\
+        90--120 & FastEDSR (0,932) & FastEDSR (0,096) \\
+        120--250 & ABPN (0,930) & ABPN (0,098) \\
+        250--500 & FastEDSR (0,928) & FastEDSR (0,103) \\
+        $>$500 & ABPN (0,921) & ABPN (0,117) \\
+        \bottomrule
+    \end{tabular}
+\end{table}

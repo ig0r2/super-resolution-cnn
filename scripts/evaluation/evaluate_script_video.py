@@ -41,7 +41,7 @@ STAGES = ("decode", "sr", "display", "total")
 
 if __name__ == "__main__":
     UPSCALE_FACTOR: Literal[2, 3, 4] = 2
-    RUNTYPE: Runtype = "ncnn-vulkan"
+    RUNTYPE: Runtype = "tensorrt"
     DECODER: Literal["pyav", "cv2"] = "cv2"  # CPU-decode runtypes only
 
     SKIP_EVALUATED = True
@@ -54,9 +54,6 @@ if __name__ == "__main__":
     ]
 
     CHECKPOINT_PATHS = [
-        # multiscale - EDSR
-        get_checkpoints_path("multiscale/SR_EDSR_2_52.pth"),
-        get_checkpoints_path("multiscale/SR_EDSR_4_52.pth"),
         # multiscale - FastEDSR
         get_checkpoints_path("multiscale/SR_FastEDSR_2_4.pth"),
         get_checkpoints_path("multiscale/SR_FastEDSR_2_8.pth"),
@@ -78,13 +75,31 @@ if __name__ == "__main__":
         get_checkpoints_path("multiscale/SR_RFDN_1_128.pth"),
         get_checkpoints_path("multiscale/SR_RFDN_2_48.pth"),
         get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_128.pth"),
-        get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_jpeg_2_256.pth"),
         get_checkpoints_path("multiscale/SR_RFDN_4_48.pth"),
         get_checkpoints_path("multiscale/SR_RFDN_4_128.pth"),
-        get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
+        # get_checkpoints_path("multiscale/SR_RFDN_4_256.pth"),
+        # multiscale - ABPN
+        get_checkpoints_path("multiscale/SR_ABPN_1_32.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_1_48.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_1_128.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_2_16.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_2_28.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_2_128.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_2_256.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_4_16.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_4_28.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_4_48.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_4_64.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_4_128.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_4_256.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_6_28.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_6_64.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_8_48.pth"),
+        get_checkpoints_path("multiscale/SR_ABPN_10_48.pth"),
     ]
 
-    if UPSCALE_FACTOR == 2:
+    if UPSCALE_FACTOR == 20:
         CHECKPOINT_PATHS += [
             # 2x - EDSR
             get_checkpoints_path("2x/SR_EDSR_2x_0_32.pth"),
@@ -112,8 +127,11 @@ if __name__ == "__main__":
             get_checkpoints_path("2x/SR_IMDN_2x_6_64.pth"),
             # 2x - RFDN
             get_checkpoints_path("2x/SR_RFDN_2x_1_4.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_16.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_1_32.pth"),
             get_checkpoints_path("2x/SR_RFDN_2x_1_48.pth"),
             get_checkpoints_path("2x/SR_RFDN_2x_1_256.pth"),
+            get_checkpoints_path("2x/SR_RFDN_2x_2_32.pth"),
             get_checkpoints_path("2x/SR_RFDN_2x_6_48.pth"),
         ]
 

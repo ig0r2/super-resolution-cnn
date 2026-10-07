@@ -9,11 +9,11 @@ the TensorRT rows in results_{N}x_video_ms.csv:
   - sr      : the SR compute alone on the decoded frame = CUDA->GL input upload + the shader
               graph. Unlike TRT (which consumes the CUDA frame directly), the input upload is an
               unavoidable part of running the shaders, so it is counted here.
-  - display : the display draw alone (see 'total').
-  - total   : decode + sr + the display draw. There is no device->host copy or bicubic downscale:
-             the SR output already lives in a GL texture on the display surface, so the GL analog
-             of the TRT "downscale + deliver" stage is the letterboxed draw into the framebuffer
-             (buffer swap / vsync excluded, matching the TRT evaluators which never present).
+  - display : presenting the frame: the letterboxed draw + buffer swap + event poll the player does
+              every frame (GLUpscaler.present), into a visible window at the display target size
+              (vsync off). There is no device->host copy or bicubic downscale: the SR output already
+              lives in a GL texture on the display surface.
+  - total   : decode + sr + display.
 
 Timing uses glFinish(), not just torch.cuda.synchronize(): the shader passes execute on the GL
 command queue rather than a CUDA stream. The CUDA input upload is ordered before the passes by
@@ -54,12 +54,16 @@ class EvaluatorPerfVideoGL(_BaseVideoPerfEvaluator):
 
         engine, meta = build_engine(self.checkpoint_path, self.upscale_factor, h, w,
                                     win_w=target_hw[1], win_h=target_hw[0],
-                                    visible=False, chunk_size=self.chunk_size)
+                                    title=self._window_name, visible=True, chunk_size=self.chunk_size)
         print(f"GL graph: {meta['num_passes']} passes (num_blocks={meta['num_blocks']}, nf={meta['nf']})")
+
+        def show():
+            engine.present()  # draw + swap_buffers
+            engine.poll()
 
         def total_step(i):
             engine.infer(decoder.frame(i % n))
-            engine.draw_final()
+            show()
 
         try:
             # Warm up the whole pipeline, then time each part inside one 'total' loop. decode is a
@@ -77,8 +81,8 @@ class EvaluatorPerfVideoGL(_BaseVideoPerfEvaluator):
                 engine.infer(frame)
                 self._sync(gl=True)           # finishes CUDA->GL upload + the shader passes
                 t2 = time.perf_counter()
-                engine.draw_final()
-                self._sync(gl=True)           # finishes the display draw on the GL queue
+                show()
+                self._sync(gl=True)           # finishes the display draw + swap on the GL queue
                 t3 = time.perf_counter()
                 totals["decode"] += t1 - t0
                 totals["sr"] += t2 - t1

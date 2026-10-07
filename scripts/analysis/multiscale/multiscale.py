@@ -8,7 +8,7 @@ konfiguracije (ista arhitektura, broj blokova i kanala) na istom faktoru i crta
 njihov kvalitet jedan naspram drugog, sa linijom identiteta (y = x).
 
 Tacke iznad dijagonale znace da je multi-scale model bolji od namenskog za tu
-metriku (za LPIPS je "bolje" nize, pa se osa tumaci obrnuto). Time se vidi da li
+metriku (za LPIPS, gde je nize bolje, obe ose su obrnute pa vazi isto). Time se vidi da li
 deljenje parametara izmedju faktora kosta kvalitet.
 
 Moze se zadati vise faktora odjednom preko "scales"; svaki dobija svoj panel
@@ -16,36 +16,22 @@ jedan pored drugog, iz istog skupa (sablon imena "template"). Alternativno,
 "results" zadaje tacno jedan CSV (jedan panel), a "scales" se ostavi None.
 """
 
-import csv
 import sys
-from itertools import cycle
 from pathlib import Path
-from types import SimpleNamespace
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from utils.analysis.plotting import ordered_archs, save_fig, setup_style, style_for
+import matplotlib.pyplot as plt
+
+from utils.analysis.config import run_configs
+from utils.analysis.data import name_filter, parse_results_name, read_rows, require_results, to_float
+from utils.analysis.fmt import zf
+from utils.analysis.metrics import check_metrics, higher_is_better
+from utils.analysis.names import INTERPOLATIONS, arch_of, pair_multiscale
 from utils.path import get_results_path
 
 DEFAULT_EXCLUDE = ["GAN", "ESRGAN", "jpeg"]
-METRICS = ("SSIM", "PSNR", "LPIPS")
-# Bazne interpolacije nisu modeli - izbacuju se iz poredjenja.
-BASELINE_NAMES = ("nearest", "bilinear", "bicubic", "lanczos")
-
-PALETTE = {
-    "SRCNN": "#7f7f7f", "VDSR": "#9467bd", "SRResNet": "#17becf",
-    "EDSR": "#1b6ca8", "FastEDSR": "#e8702a", "IMDN": "#3c9a5f", "RFDN": "#b13b8f",
-}
-MARKERS = {
-    "SRCNN": "P", "VDSR": "X", "SRResNet": "*",
-    "EDSR": "o", "FastEDSR": "s", "IMDN": "^", "RFDN": "D",
-}
-PREFERRED_ORDER = ["SRCNN", "VDSR", "SRResNet", "EDSR", "FastEDSR", "IMDN", "RFDN"]
-KNOWN_DATASETS = ("Set5", "Set14", "BSD100", "Urban100", "DIV2K")
 
 # Podrazumevane vrednosti za svako polje konfiguracije. Svaka stavka u CONFIGS
 # prepisuje samo ono sto joj treba; ostalo se uzima odavde.
@@ -86,127 +72,40 @@ CONFIGS = [
 ##############################################
 
 
-def resolve_results(name: str) -> Path:
-    p = Path(name)
-    if p.is_absolute() or p.exists():
-        return p
-    return get_results_path(name)
-
-
-def zf(value, spec) -> str:
-    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
-    return format(value, spec).replace(".", ",")
-
-
-def arch_of(name: str) -> str:
-    parts = name.split("_")
-    if parts and parts[0] == "SR":
-        parts = parts[1:]
-    return parts[0] if parts else name
-
-
-def is_single_scale(name: str) -> bool:
-    return any(t.endswith("x") and t[:-1].isdigit() for t in name.split("_"))
-
-
-def config_key(name: str) -> str:
-    """Ime bez `SR_` prefiksa i bez tokena faktora - kljuc za uparivanje."""
-    parts = [t for t in name.split("_") if t != "SR"
-             and not (t.endswith("x") and t[:-1].isdigit())]
-    return "_".join(parts)
-
-
-def to_float(x):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
-
-
-def label_from_filename(name):
-    parts = Path(name).stem.split("_")
-    factor = next((p[:-1] for p in parts if p.endswith("x") and p[:-1].isdigit()), None)
-    dataset = next((p for p in parts if p in KNOWN_DATASETS), None)
-    return dataset, factor
-
-
-def compute_pairs(path: Path, metric, exclude, archs_filter, include):
+def compute_pairs(path: Path, metric, keep):
     """Vrati listu uparenih {arch, single, multi} za jedan CSV."""
-    multi, single = {}, {}
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if metric not in reader.fieldnames:
-            sys.exit(f"Metrika '{metric}' ne postoji u {path.name}.")
-        for r in reader:
-            name = r.get("model_name", "")
-            if not name or name in BASELINE_NAMES:
-                continue
-            if any(sub in name for sub in exclude):
-                continue
-            if include and not any(sub in name for sub in include):
-                continue
-            if archs_filter and arch_of(name) not in archs_filter:
-                continue
-            v = to_float(r.get(metric))
-            if v is None:
-                continue
-            (single if is_single_scale(name) else multi)[config_key(name)] = (name, v)
-
-    pairs = []
-    for key in set(multi) & set(single):
-        m_name, m_val = multi[key]
-        s_name, s_val = single[key]
-        pairs.append({"arch": arch_of(m_name), "single": s_val, "multi": m_val})
-    return pairs
-
-
-def style_for(archs):
-    extra_c = cycle(["#d62728", "#bcbd22", "#8c564b", "#e377c2", "#2ca02c"])
-    extra_m = cycle(["v", "<", ">", "p", "h"])
-    colors = {a: PALETTE.get(a) or next(extra_c) for a in archs}
-    markers = {a: MARKERS.get(a) or next(extra_m) for a in archs}
-    return colors, markers
-
-
-def main():
-    if not CONFIGS:
-        sys.exit("CONFIGS je prazna - dodaj bar jednu konfiguraciju.")
-    for i, cfg_dict in enumerate(CONFIGS):
-        cfg = SimpleNamespace(**{**CONFIG_DEFAULTS, **cfg_dict})
-        if i:
-            print("\n" + "=" * 60 + "\n")
-        print(f"### Konfiguracija: {cfg.name}")
-        run_config(cfg)
+    items = []
+    for r in read_rows(path, [metric]):
+        name = r.get("model_name", "")
+        if name in INTERPOLATIONS or not keep(name):
+            continue
+        v = to_float(r.get(metric))
+        if v is not None:
+            items.append((name, v))
+    return [{"arch": arch_of(m_name), "single": s_val, "multi": m_val}
+            for _, (_, s_val), (m_name, m_val) in pair_multiscale(items)]
 
 
 def run_config(cfg):
-    if cfg.metric not in METRICS:
-        sys.exit(f"Nepoznata metrika '{cfg.metric}'. Podrzane: {', '.join(METRICS)}")
-
-    exclude = DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude
-    archs_filter = set(cfg.archs) if cfg.archs else None
-    include = cfg.include or None
+    check_metrics([cfg.metric])
+    keep = name_filter(DEFAULT_EXCLUDE if cfg.exclude is None else cfg.exclude, cfg.archs, cfg.include)
 
     # Izvori: ili vise faktora ("scales") ili jedan CSV ("results").
     sources = []  # (naslov_faktora, dataset, path)
     if cfg.scales:
         for s in cfg.scales:
-            path = resolve_results(cfg.template.format(scale=s, dataset=cfg.dataset))
-            if not path.exists():
-                sys.exit(f"CSV za faktor x{s} ne postoji: {path}")
+            path = require_results(cfg.template.format(scale=s, dataset=cfg.dataset))
             sources.append((f"$\\times${s}", cfg.dataset, path))
     else:
-        path = resolve_results(cfg.results)
-        if not path.exists():
-            sys.exit(f"CSV ne postoji: {path}")
-        dataset, factor = label_from_filename(cfg.results)
+        path = require_results(cfg.results)
+        dataset, factor = parse_results_name(cfg.results)
         sources.append((f"$\\times${factor}" if factor else "", dataset, path))
 
-    maximize = cfg.metric != "LPIPS"
+    maximize = higher_is_better(cfg.metric)
 
     panels = []  # (naslov, dataset, pairs)
     for title, dataset, path in sources:
-        pairs = compute_pairs(path, cfg.metric, exclude, archs_filter, include)
+        pairs = compute_pairs(path, cfg.metric, keep)
         if not pairs:
             print(f"Upozorenje: nema uparenih konfiguracija u {path.name}.")
             continue
@@ -214,14 +113,10 @@ def run_config(cfg):
     if not panels:
         sys.exit("Nema uparenih multi-scale / single-scale konfiguracija.")
 
-    present = set()
-    for _, _, pairs in panels:
-        present |= {p["arch"] for p in pairs}
-    archs = [a for a in PREFERRED_ORDER if a in present] + sorted(present - set(PREFERRED_ORDER))
+    archs = ordered_archs(p["arch"] for _, _, pairs in panels for p in pairs)
     colors, markers = style_for(archs)
 
-    plt.rcParams.update({"font.size": 11, "axes.grid": True,
-                         "grid.alpha": 0.25, "figure.dpi": cfg.dpi})
+    setup_style(cfg.dpi)
     n = len(panels)
     fig, axes = plt.subplots(1, n, figsize=(5.4 * n, 5.4), squeeze=False)
     axes = axes[0]
@@ -244,16 +139,15 @@ def run_config(cfg):
         ax.set_ylabel(f"{cfg.metric} - multi-scale ({ds}{title})")
         deltas = [(p["multi"] - p["single"]) * (1 if maximize else -1) for p in pairs]
         wins = sum(1 for d in deltas if d > 0)
-        # ax.set_title(f"{title} - {len(pairs)} parova (multi bolji {wins})")
+        if not maximize:
+            # LPIPS: nize je bolje - obe ose obrnute, pa i ovde "iznad dijagonale" = multi bolji.
+            ax.invert_xaxis()
+            ax.invert_yaxis()
         ax.legend(loc="best", fontsize=9)
         stats.append((title, len(pairs), wins, sum(deltas) / len(deltas)))
 
     fig.tight_layout()
-    out_name = cfg.out or f"multiscale_{cfg.name}.png"
-    out_path = get_results_path("analysis/multiscale") / out_name
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path)
-    plt.close(fig)
+    out_path = save_fig(fig, get_results_path("analysis/multiscale") / (cfg.out or f"multiscale_{cfg.name}.png"))
 
     print(f"Metrika: {cfg.metric}  ({'vise je bolje' if maximize else 'nize je bolje'})")
     for title, n_pairs, wins, mean_d in stats:
@@ -264,4 +158,4 @@ def run_config(cfg):
 
 
 if __name__ == "__main__":
-    main()
+    run_configs(CONFIGS, CONFIG_DEFAULTS, run_config)

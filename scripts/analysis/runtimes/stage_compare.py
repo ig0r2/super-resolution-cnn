@@ -11,18 +11,19 @@ linije. Sve konfiguracije se obradjuju u jednom pokretanju i daju odvojenu sliku
 (imenovanu po "name" polju) u results/analysis/stages/.
 """
 
-import csv
 import sys
 from pathlib import Path
-from types import SimpleNamespace
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from utils.analysis.plotting import save_fig, setup_style
+import matplotlib.pyplot as plt
+
+from utils.analysis.config import run_configs
+from utils.analysis.data import read_rows, require_results, to_float
+from utils.analysis.fmt import zf
+from utils.analysis.names import display_name
+from utils.analysis.runtypes import order_runtypes, runtype_label
 from utils.path import get_results_path
 
 # Ako je "model" jedna od ovih vrednosti, faze se uprose preko svih modela
@@ -30,19 +31,6 @@ from utils.path import get_results_path
 AVG_KEYS = {"prosek", "average", "mean", "avg"}
 # Kod proseka se ovi modeli izbacuju iz uparivanja.
 DEFAULT_EXCLUDE = ["GAN", "ESRGAN", "jpeg"]
-
-# Redosled i citljive oznake za runtype-ove (koristi se i kao podrazumevani
-# redosled kad "runtypes" nije zadat).
-RUNTYPE_LABELS = {
-    "onnxruntime-cuda": "ORT-CUDA",
-    "onnxruntime-directml": "ORT-DirectML",
-    "onnxruntime-tensorrt": "ORT-TensorRT",
-    "tensorrt": "TensorRT",
-    "tensorrt-nvdec": "TensorRT+NVDEC",
-    "tensorrt-nvdec-gl": "TensorRT+NVDEC+GL",
-    "ncnn-vulkan": "ncnn-Vulkan",
-    "opengl": "OpenGL",
-}
 
 # Faze (kratka oznaka -> deo imena kolone, spaja se sa "res": f"{res} {key}").
 STAGE_LABELS = {
@@ -71,6 +59,7 @@ CONFIG_DEFAULTS = {
     # (None -> oznaka iz RUNTYPE_LABELS)
     "out": None,  # None -> stages_<name>.png
     "legend_loc": "lower right",  # pozicija legende (matplotlib loc)
+    "show_title": False,  # True -> naslov iznad grafika
     "dpi": 140,
 }
 
@@ -99,67 +88,32 @@ CONFIGS = [
                      "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
     {
-        "name": "FastEDSR_2_32_decode",
-        "model": "SR_FastEDSR_2_32",
-        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
-    },
-    {
-        "name": "FastEDSR_2_32_display",
-        "model": "SR_FastEDSR_2_32",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
-                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
-    },
-    {
-        "name": "FastEDSR_4_32_decode",
+        "name": "FastEDSR_4_32",
         "model": "SR_FastEDSR_4_32",
-        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"}
     },
     {
-        "name": "FastEDSR_4_32_display",
+        "name": "FastEDSR_4_32_3",
         "model": "SR_FastEDSR_4_32",
         "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
                      "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
     {
-        "name": "FastEDSR_4_128_decode",
-        "model": "SR_FastEDSR_4_128",
-        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
+        "name": "FastEDSR_4_32_shaders",
+        "model": "SR_FastEDSR_4_32",
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz",
+                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz",
+                     "opengl": "NVDEC dekodiranje\nOpenGL šejderi"}
     },
     {
-        "name": "FastEDSR_4_128_display",
+        "name": "FastEDSR_4_128",
         "model": "SR_FastEDSR_4_128",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
-                     "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
+        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"}
     },
 ]
 
 
 ##############################################
-
-
-def resolve_results(name: str) -> Path:
-    p = Path(name)
-    if p.is_absolute() or p.exists():
-        return p
-    return get_results_path(name)
-
-
-def to_float(x):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
-
-
-def zf(value, spec) -> str:
-    """Formatira broj po `spec` sa decimalnim zarezom umesto tacke."""
-    return format(value, spec).replace(".", ",")
-
-
-def label_for(rt, labels=None):
-    if labels and rt in labels:
-        return labels[rt]
-    return RUNTYPE_LABELS.get(rt, rt)
 
 
 def normalize_runtypes(runtypes):
@@ -184,30 +138,19 @@ def load_model(path, cols, cfg):
     sel = set(cfg.runtypes) if cfg.runtypes else None
     is_avg = str(cfg.model).strip().lower() in AVG_KEYS
     per_rt = {}  # rt -> {model_name: {col: value}} (samo redovi sa svim fazama)
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        missing = [c for c in cols if c not in reader.fieldnames]
-        if missing:
-            usable = [c for c in reader.fieldnames if c not in ("model_name", "params", "runtype")]
-            sys.exit(f"Nedostaju kolone {', '.join(missing)} u {path.name}. "
-                     f"Dostupne: {', '.join(usable)}")
-        for r in reader:
-            name = r.get("model_name", "")
-            if not is_avg and name != cfg.model:
-                continue
-            if is_avg and any(sub in name for sub in DEFAULT_EXCLUDE):
-                continue
-            rt = r.get("runtype", "")
-            if sel is not None and rt not in sel:
-                continue
-            rec = {}
-            for c in cols:
-                v = to_float(r.get(c))
-                if v is not None:
-                    rec[c] = v
-            if len(rec) != len(cols):  # preskoci redove bez svih faza
-                continue
-            per_rt.setdefault(rt, {})[name] = rec
+    for r in read_rows(path, cols):
+        name = r.get("model_name", "")
+        if not is_avg and name != cfg.model:
+            continue
+        if is_avg and any(sub in name for sub in DEFAULT_EXCLUDE):
+            continue
+        rt = r.get("runtype", "")
+        if sel is not None and rt not in sel:
+            continue
+        rec = {c: to_float(r.get(c)) for c in cols}
+        if any(v is None for v in rec.values()):  # preskoci redove bez svih faza
+            continue
+        per_rt.setdefault(rt, {})[name] = rec
 
     if is_avg:
         # zajednicki modeli za sve ukljucene backend-e, pa prosek po fazi.
@@ -224,19 +167,13 @@ def load_model(path, cols, cfg):
                 if cfg.model in recs}
         n_models = 1 if data else 0
 
-    if cfg.runtypes:
-        order = [rt for rt in cfg.runtypes if rt in data]
-    else:
-        known = [rt for rt in RUNTYPE_LABELS if rt in data]
-        rest = sorted(rt for rt in data if rt not in RUNTYPE_LABELS)
-        order = known + rest
-    return order, data, n_models
+    return order_runtypes(data, cfg.runtypes), data, n_models
 
 
-def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi, labels=None):
+def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi, labels=None,
+         show_title=False):
     """Stacked horizontalni bar: red = backend, segmenti = faze (ms)."""
-    plt.rcParams.update({"font.size": 11, "axes.grid": True,
-                         "grid.alpha": 0.25, "figure.dpi": dpi})
+    setup_style(dpi)
     fig, ax = plt.subplots(figsize=(9.0, 1.4 + 0.55 * len(runtypes)))
 
     ys = list(range(len(runtypes)))
@@ -267,31 +204,19 @@ def plot(runtypes, data, stages, cols, title, res, legend_loc, dpi, labels=None)
         ax.text(total, y, f" {zf(total, '.2f')}", va="center", ha="left", fontsize=8.5)
 
     ax.set_yticks(ys)
-    ax.set_yticklabels([label_for(rt, labels) for rt in runtypes])
+    ax.set_yticklabels([runtype_label(rt, labels) for rt in runtypes])
     ax.invert_yaxis()  # prvi backend na vrhu
     ax.set_xlabel("Vreme po frejmu (ms) - nize je bolje")
-    ax.set_title(f"Faze obrade frejma - {title} @ {res}")
+    if show_title:
+        ax.set_title(f"Faze obrade frejma - {title} @ {res}")
     ax.margins(x=0.10)
     ax.legend(loc=legend_loc, fontsize=9, framealpha=0.9, ncol=len(stages))
     fig.tight_layout()
     return fig
 
 
-def main():
-    if not CONFIGS:
-        sys.exit("CONFIGS je prazna - dodaj bar jednu konfiguraciju.")
-    for i, cfg_dict in enumerate(CONFIGS):
-        cfg = SimpleNamespace(**{**CONFIG_DEFAULTS, **cfg_dict})
-        if i:
-            print("\n" + "=" * 60 + "\n")
-        print(f"### Konfiguracija: {cfg.name}")
-        run_config(cfg)
-
-
 def run_config(cfg):
-    results_path = resolve_results(cfg.results)
-    if not results_path.exists():
-        sys.exit(f"CSV ne postoji: {results_path}")
+    results_path = require_results(cfg.results)
 
     cfg.runtypes, labels = normalize_runtypes(cfg.runtypes)
     cols = [f"{cfg.res} {s}" for s in cfg.stages]
@@ -301,27 +226,23 @@ def run_config(cfg):
                  f"(proveri model/res/runtypes).")
 
     is_avg = str(cfg.model).strip().lower() in AVG_KEYS
-    title = f"prosek ({n_models} modela)" if is_avg else cfg.model
+    title = f"prosek ({n_models} modela)" if is_avg else display_name(cfg.model)
 
     fig = plot(runtypes, data, cfg.stages, cols, title, cfg.res,
-               cfg.legend_loc, cfg.dpi, labels)
+               cfg.legend_loc, cfg.dpi, labels, cfg.show_title)
 
-    out_name = cfg.out or f"stages_{cfg.name}.png"
-    out_path = get_results_path("analysis/stages") / out_name
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path)
-    plt.close(fig)
+    out_path = save_fig(fig, get_results_path("analysis/stages") / (cfg.out or f"stages_{cfg.name}.png"))
 
-    model_info = f"prosek/{n_models} modela" if is_avg else cfg.model
+    model_info = f"prosek/{n_models} modela" if is_avg else display_name(cfg.model)
     print(f"Izvor: {results_path}  ({cfg.res}, model={model_info})")
-    print(f"Backend-ovi: {', '.join(label_for(rt, labels) for rt in runtypes)}")
+    print(f"Backend-ovi: {', '.join(runtype_label(rt, labels) for rt in runtypes)}")
     for rt in runtypes:
         parts = "  ".join(f"{STAGE_LABELS.get(s, s)}={zf(data[rt][c], '.2f')}"
                           for s, c in zip(cfg.stages, cols))
         total = sum(data[rt][c] for c in cols)
-        print(f"  {label_for(rt, labels):<18} {parts}   Ukupno={zf(total, '.2f')}ms")
+        print(f"  {runtype_label(rt, labels):<18} {parts}   Ukupno={zf(total, '.2f')}ms")
     print(f"Slika:  {out_path}")
 
 
 if __name__ == "__main__":
-    main()
+    run_configs(CONFIGS, CONFIG_DEFAULTS, run_config)
