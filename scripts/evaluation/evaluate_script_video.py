@@ -7,7 +7,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from utils.csv_utils import save_to_csv, already_done
 from utils.path import get_logs_path, get_results_path, get_checkpoints_path, get_project_root
 from utils.logger import Logger
@@ -238,7 +238,7 @@ if __name__ == "__main__":
             print(f"Checkpoint: {checkpoint_path.stem}")
 
             # Load once only for the param count; the backends reload the checkpoint themselves.
-            model, _ = load_model_from_checkpoint(checkpoint_path, "cpu")
+            model, _ = load_model(checkpoint_path, "cpu")
             model.upscale_factor = UPSCALE_FACTOR
             total_params = sum(p.numel() for p in model.parameters())
             del model

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import torch
 
 from models import RegularModel
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from utils.csv_utils import save_to_csv, get_columns_to_evaluate
 from utils.evaluator import Evaluator
 from utils.evaluator_perf import EvaluatorPerf
@@ -151,7 +151,7 @@ if __name__ == "__main__":
             if is_method:
                 model = RegularModel(item['method'], UPSCALE_FACTOR)
             else:
-                model, _ = load_model_from_checkpoint(checkpoint_path, device)
+                model, _ = load_model(checkpoint_path, device)
                 model.upscale_factor = UPSCALE_FACTOR
 
             # Evaluation

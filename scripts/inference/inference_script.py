@@ -9,7 +9,7 @@ from torchvision.io import ImageReadMode, decode_image
 from torchvision.utils import save_image
 
 from models import RegularModel
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from utils.model_utils import tile_forward
 from utils.path import get_checkpoints_path, get_project_root
 
@@ -39,7 +39,7 @@ else:
 if USE_METHOD:
     model = RegularModel(METHOD, UPSCALE_FACTOR)
 else:
-    model, _ = load_model_from_checkpoint(CHECKPOINT_PATH, device)
+    model, _ = load_model(CHECKPOINT_PATH, device)
     model.upscale_factor = UPSCALE_FACTOR
 
 model.eval()

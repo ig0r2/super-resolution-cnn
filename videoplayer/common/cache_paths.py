@@ -12,21 +12,24 @@ evaluators share the same files:
     exports/trt/nvdec/{tag}.engine    ... its TensorRT engine
     exports/onnx/ncnn/{tag}.onnx      CHW RGB model + *255/clamp (ncnn/pnnx source)
     exports/ncnn/{tag}.ncnn.param/bin ncnn model
+
+The model itself is always loaded from a slim checkpoint (model_config + model_state_dict only):
+
+    exports/pth/{name}.pth            name mirrors checkpoints/ ("multiscale/SR_FastEDSR_4_128"),
+                                      see utils.checkpoints.resolve_checkpoint
 """
-from pathlib import Path
 from typing import Literal
 
-from utils.path import get_checkpoints_path, get_project_root
+from utils.checkpoints import resolve_checkpoint
+from utils.path import get_project_root
 
 Pipeline = Literal["cv2", "nvdec", "ncnn"]
 
 
 def resolve_model(model, frame_size, scale):
     """model: checkpoint name under checkpoints/ ("multiscale/SR_FastEDSR_4_128") or a .pth path.
-    Returns (checkpoint_path, tag), where tag = "{stem}_{h}x{w}_{s}x" keys all cached exports."""
-    path = Path(model)
-    if path.suffix != ".pth":
-        path = get_checkpoints_path(f"{model}.pth")
+    Returns (slim_checkpoint_path, tag), where tag = "{stem}_{h}x{w}_{s}x" keys all cached exports."""
+    path = resolve_checkpoint(model)
     return path, f"{path.stem}_{frame_size[0]}x{frame_size[1]}_{scale}x"
 
 

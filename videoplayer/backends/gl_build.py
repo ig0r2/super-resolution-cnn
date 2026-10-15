@@ -5,10 +5,9 @@ Only SR_FastEDSR_Multi is supported (the architecture the shader generator under
 model raises RuntimeError so callers can skip it the same way they skip a failed engine build.
 """
 
-from pathlib import Path
 from typing import Tuple
 
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from .gl_engine import GLUpscaler, InputKind
 from .shader_gen import build_passes
 
@@ -20,7 +19,7 @@ def build_engine(checkpoint_path, scale: int, lr_h: int, lr_w: int,
                  fullscreen: bool = False, visible: bool = True,
                  chunk_size: int = 8, input: InputKind = "cuda") -> Tuple[GLUpscaler, dict]:
     """input="cuda" takes NVDEC CUDA frames, input="host" CPU-decoded BGR numpy frames (no CUDA)."""
-    model, cfg = load_model_from_checkpoint(Path(checkpoint_path), "cpu")
+    model, cfg = load_model(checkpoint_path, "cpu")
     if cfg["name"] != SUPPORTED:
         raise RuntimeError(f"GL backend only supports {SUPPORTED}, got {cfg['name']}")
 

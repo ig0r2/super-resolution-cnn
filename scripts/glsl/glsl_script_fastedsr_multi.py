@@ -34,7 +34,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from utils.path import get_checkpoints_path, get_project_root
 
 
@@ -474,12 +474,12 @@ if __name__ == "__main__":
     checkpoint_path = get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth")
 
     output_path_2 = get_project_root(f"exports/glsl/{checkpoint_path.stem}.glsl")
-    output_path_3 = Path(f"C:/Users/yoigg/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
-    output_path = Path("C:/Users/yoigg/Tools/mpv/shaders/current.glsl")
+    output_path_3 = Path(f"C:/Users/User/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
+    output_path = Path("C:/Users/User/Tools/mpv/shaders/current.glsl")
 
     output_path_2.parent.mkdir(parents=True, exist_ok=True)
 
-    model, model_config = load_model_from_checkpoint(checkpoint_path, "cpu")
+    model, model_config = load_model(checkpoint_path, "cpu")
 
     print_model_layers(model)
     W = get_weights_from_model(model)
@@ -514,4 +514,4 @@ if __name__ == "__main__":
     # exit()
 
     subprocess.run(["powershell", "-Command",
-                    'rm C:\\Users\\yoigg\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\yoigg\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-720p50.mp4 '])
+                    'rm C:\\Users\\User\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\User\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-720p50.mp4 '])

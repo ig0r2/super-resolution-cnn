@@ -8,7 +8,7 @@ from torchvision.io import decode_image
 from torchvision.transforms import v2
 
 from models import RegularModel
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from utils.metrics import SSIM, PSNR, LPIPS
 from utils.model_utils import tile_forward
 from utils.path import get_project_root
@@ -53,7 +53,7 @@ class ImageComparison:
 
     def proccess_checkpoint(self, checkpoint_path, display_name):
         checkpoint_path = Path(checkpoint_path)
-        model, checkpoint = load_model_from_checkpoint(checkpoint_path, self.device)
+        model, checkpoint = load_model(checkpoint_path, self.device)
         model.upscale_factor = self.upscale_factor
         model.eval()
         with torch.no_grad():

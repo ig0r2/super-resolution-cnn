@@ -32,7 +32,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model
 from utils.path import get_project_root, get_checkpoints_path
 
 
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     output_path_2.parent.mkdir(parents=True, exist_ok=True)
 
-    model, model_config = load_model_from_checkpoint(checkpoint_path, "cpu")
+    model, model_config = load_model(checkpoint_path, "cpu")
 
     print_model_layers(model)
     W = get_weights_from_model(model)

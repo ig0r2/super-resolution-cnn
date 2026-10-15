@@ -29,6 +29,11 @@ def get_checkpoints_path(subpath=None) -> Path:
     return _get_custom_folder("checkpoints", subpath)
 
 
+def get_slim_checkpoints_path(subpath=None) -> Path:
+    """Slim checkpointi (samo model_config + model_state_dict), ista struktura kao checkpoints/."""
+    return _get_custom_folder("exports/pth", subpath)
+
+
 def get_config_path(subpath=None) -> Path:
     return _get_custom_folder("config", subpath)
 

@@ -26,7 +26,7 @@ from utils.plot import plot_training_history_gan
 from utils.trainers.base_trainer import BaseTrainer
 from loss.esrgan_loss import ESRGANLoss
 from models.esrgan.discriminator import VGGDiscriminator
-from utils.checkpoints import load_model_from_checkpoint
+from utils.checkpoints import load_model, load_model_from_checkpoint
 from utils.metrics import LPIPS
 from utils.model_utils import tile_forward
 from utils.path import get_checkpoints_path
@@ -56,7 +56,7 @@ class TrainerGAN(BaseTrainer):
             self.model, self.config['model'] = load_model_from_checkpoint(ckpt_path, self.device)
         else:
             gan_checkpoint_name = config['model']['checkpoint_name']
-            self.model, self.config['model'] = load_model_from_checkpoint(
+            self.model, self.config['model'] = load_model(
                 get_checkpoints_path(config['model']['pretrain_checkpoint_path']), self.device)
             self.config['model']['checkpoint_name'] = gan_checkpoint_name
 
