@@ -79,36 +79,36 @@ CONFIGS = [
     {
         "name": "prosek_decode",
         "model": "prosek",
-        "runtypes": {"tensorrt": "cv2 dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
+        "runtypes": {"tensorrt": "OpenCV dekodiranje", "tensorrt-nvdec": "NVDEC dekodiranje"},
     },
     {
         "name": "prosek_display",
         "model": "prosek",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
+        "runtypes": {"tensorrt": "OpenCV dekodiranje\nOpenCV prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\nOpenCV prikaz",
                      "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
     {
         "name": "FastEDSR_4_32",
         "model": "SR_FastEDSR_4_32",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"}
+        "runtypes": {"tensorrt": "OpenCV dekodiranje\nOpenCV prikaz", "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"}
     },
     {
         "name": "FastEDSR_4_32_3",
         "model": "SR_FastEDSR_4_32",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\ncv2 prikaz",
+        "runtypes": {"tensorrt": "OpenCV dekodiranje\nOpenCV prikaz", "tensorrt-nvdec": "NVDEC dekodiranje\nOpenCV prikaz",
                      "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"},
     },
     {
         "name": "FastEDSR_4_32_shaders",
         "model": "SR_FastEDSR_4_32",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz",
+        "runtypes": {"tensorrt": "OpenCV dekodiranje\nOpenCV prikaz",
                      "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz",
                      "opengl": "NVDEC dekodiranje\nOpenGL šejderi"}
     },
     {
         "name": "FastEDSR_4_128",
         "model": "SR_FastEDSR_4_128",
-        "runtypes": {"tensorrt": "cv2 dekodiranje\ncv2 prikaz", "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"}
+        "runtypes": {"tensorrt": "OpenCV dekodiranje\nOpenCV prikaz", "tensorrt-nvdec-gl": "NVDEC dekodiranje\nOpenGL prikaz"}
     },
 ]
 

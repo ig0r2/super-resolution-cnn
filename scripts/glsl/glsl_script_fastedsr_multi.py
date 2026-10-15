@@ -189,7 +189,7 @@ def get_conv_shader(W, b, out_group, name, prev_name, relu, skip_name, in_start,
 
 
 # First conv - reads from MAIN
-def get_conv_shader_MAIN(W, b, out_group, name, when):
+def get_conv_shader_MAIN(W, b, out_group, name, when, relu=False):
     code = f"""//!DESC {name} Conv3x3 part {out_group}
 //!HOOK MAIN
 //!BIND MAIN
@@ -204,6 +204,7 @@ vec4 hook() {{
 """
     code += get_conv_single_group_lines(W, out_group, 0)
     code += get_vec4_bias(b, out_group) + "\n"
+    if relu: code += "    result = max(result, 0.0);\n"
     code += "    return result;\n}\n"
     return code
 
@@ -228,7 +229,7 @@ def get_conv3x3(W, name, prev_name, relu=False, skip_name=None, chunk_size=8, wh
     code = ""
     for i in range(num_shaders):
         if prev_name is None:
-            code += get_conv_shader_MAIN(weight, bias, i, name, when)
+            code += get_conv_shader_MAIN(weight, bias, i, name, when, relu)
         else:
             num_in_groups = int(ceil(input_ch / 4))
             num_chunks = int(ceil(num_in_groups / chunk_size))
@@ -276,12 +277,28 @@ and normalize to [0-1]
         
 We get our result               vec3 res = vec3(p0[idx], p1[idx], p2[idx]);
 and add to upscaled image       vec3 final_output = MAIN_tex(MAIN_pos).rgb + res;
+
+anchor - what the residual is added to:
+    "bilinear" -> MAIN_tex(MAIN_pos)    MAIN is sampled at the HR pixel position, the GPU linear filter
+                                        gives bilinear upscale (FastEDSR, align_corners=False)
+    "nearest"  -> MAIN_tex(tex_coord)   MAIN is sampled at the LR texel center, the linear filter returns
+                                        that texel exactly = nearest upscale (ABPN anchor)
         
 ############################################
 """
 
+ANCHORS = {
+    "bilinear": "MAIN_tex(MAIN_pos).rgb",
+    "nearest": "MAIN_tex(tex_coord).rgb",
+}
 
-def get_pixel_shuffle_x2(prev_name, when):
+# WHEN conditions that pick the upscale block by the OUTPUT/MAIN ratio
+WHEN_X2 = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > + OUTPUT.w MAIN.w / 2.2 < OUTPUT.h MAIN.h / 2.2 < + *"
+WHEN_X3 = "OUTPUT.w MAIN.w / 2.2 >= OUTPUT.h MAIN.h / 2.2 >= + OUTPUT.w MAIN.w / 3.2 < OUTPUT.h MAIN.h / 3.2 < + *"
+WHEN_X4 = "OUTPUT.w MAIN.w / 3.2 >= OUTPUT.h MAIN.h / 3.2 >= +"
+
+
+def get_pixel_shuffle_x2(prev_name, when, anchor="bilinear"):
     prev_name = prev_name.replace(".", "_")
 
     code = f"""//!DESC PixelShuffle x2
@@ -307,7 +324,7 @@ vec4 hook() {{
     vec4 p2 = conv_{prev_name}_p2_tex(tex_coord);
 
     vec3 res = vec3(p0[idx], p1[idx], p2[idx]);
-    vec3 final_output = MAIN_tex(MAIN_pos).rgb + res;
+    vec3 final_output = {ANCHORS[anchor]} + res;
 
     return vec4(clamp(final_output, 0.0, 1.0), 1.0);
 }}
@@ -315,7 +332,7 @@ vec4 hook() {{
     return code
 
 
-def get_pixel_shuffle_x3(prev_name, when):
+def get_pixel_shuffle_x3(prev_name, when, anchor="bilinear"):
     prev_name = prev_name.replace(".", "_")
 
     # 3x3 * 3 channels = 27 output channels => ceil(27/4) = 7 textures (p0..p6)
@@ -360,7 +377,7 @@ vec4 hook() {{
     float b = (b_ch < 20) ? p4[b_ch-16] : (b_ch < 24) ? p5[b_ch-20] : (b_ch < 28) ? p6[b_ch-24] : 0.0;
 
     vec3 res = vec3(r, g, b);
-    vec3 final_output = MAIN_tex(MAIN_pos).rgb + res;
+    vec3 final_output = {ANCHORS[anchor]} + res;
 
     return vec4(clamp(final_output, 0.0, 1.0), 1.0);
 }}
@@ -368,7 +385,7 @@ vec4 hook() {{
     return code
 
 
-def get_pixel_shuffle_x4(prev_name, when):
+def get_pixel_shuffle_x4(prev_name, when, anchor="bilinear"):
     prev_name = prev_name.replace(".", "_")
 
     # 4x4 * 3 channels = 48 output channels => ceil(48/4) = 12 textures (p0..p11)
@@ -421,7 +438,7 @@ vec4 hook() {{
             : (b_ch < 44) ? p10[b_ch-40] : p11[b_ch-44];
 
     vec3 res = vec3(r, g, b);
-    vec3 final_output = MAIN_tex(MAIN_pos).rgb + res;
+    vec3 final_output = {ANCHORS[anchor]} + res;
 
     return vec4(clamp(final_output, 0.0, 1.0), 1.0);
 }}
@@ -432,21 +449,21 @@ vec4 hook() {{
 # Get upscale block for 2x scale (shuffle conv + pixel shuffle)
 def get_upscale_block_x2(W, prev_name):
     final_conv_name = f"upscale_block_2.0"
-    when = "OUTPUT.w MAIN.w / 1.2 > OUTPUT.h MAIN.h / 1.2 > + OUTPUT.w MAIN.w / 2.2 < OUTPUT.h MAIN.h / 2.2 < + *"
+    when = WHEN_X2
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
             get_pixel_shuffle_x2(prev_name=final_conv_name, when=when))
 
 
 def get_upscale_block_x3(W, prev_name):
     final_conv_name = f"upscale_block_3.0"
-    when = "OUTPUT.w MAIN.w / 2.2 >= OUTPUT.h MAIN.h / 2.2 >= + OUTPUT.w MAIN.w / 3.2 < OUTPUT.h MAIN.h / 3.2 < + *"
+    when = WHEN_X3
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
             get_pixel_shuffle_x3(prev_name=final_conv_name, when=when))
 
 
 def get_upscale_block_x4(W, prev_name):
     final_conv_name = f"upscale_block_4.0"
-    when = "OUTPUT.w MAIN.w / 3.2 >= OUTPUT.h MAIN.h / 3.2 >= +"
+    when = WHEN_X4
     return (get_conv3x3(W, name=final_conv_name, prev_name=prev_name, when=when) +
             get_pixel_shuffle_x4(prev_name=final_conv_name, when=when))
 
@@ -454,11 +471,11 @@ def get_upscale_block_x4(W, prev_name):
 ##############################################
 
 if __name__ == "__main__":
-    checkpoint_path = get_checkpoints_path("multiscale/SR_FastEDSR_jpeg_4_32_s.pth")
+    checkpoint_path = get_checkpoints_path("multiscale/SR_FastEDSR_4_64.pth")
 
     output_path_2 = get_project_root(f"exports/glsl/{checkpoint_path.stem}.glsl")
-    output_path_3 = Path(f"C:/Users/User/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
-    output_path = Path("C:/Users/User/Tools/mpv/shaders/current.glsl")
+    output_path_3 = Path(f"C:/Users/yoigg/Tools/mpv/shaders/{checkpoint_path.stem}.glsl")
+    output_path = Path("C:/Users/yoigg/Tools/mpv/shaders/current.glsl")
 
     output_path_2.parent.mkdir(parents=True, exist_ok=True)
 
@@ -494,7 +511,7 @@ if __name__ == "__main__":
     output_path_2.write_text(code)
     output_path_3.write_text(code)
 
-    exit()
+    # exit()
 
     subprocess.run(["powershell", "-Command",
-                    'rm C:\\Users\\User\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\User\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-240p50.mp4 '])
+                    'rm C:\\Users\\yoigg\\AppData\\Local\\mpv\\cache\\*; mpv.exe --msg-level=vo=debug,gpu=debug C:\\Users\\yoigg\\PycharmProjects\\Pytorch\\super-resolution-cnn\\videoinput\\F1Bahr-720p50.mp4 '])

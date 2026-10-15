@@ -7,7 +7,7 @@ pocinju sa "onnxruntime-"; sa filterom se uzimaju tacno zadati (npr. i native
 "tensorrt", "ncnn-vulkan"). Za svaki runtype se uzima prosek vrednosti preko
 modela koji su zajednicki za sve ukljucene backend-e (fer poredjenje na istom
 skupu modela). Nazivi runtype-ova se mapiraju na citljive oznake (ORT-TensorRT,
-ORT-CUDA, ORT-DirectML, TensorRT, ncnn-Vulkan).
+ORT-CUDA, ORT-DirectML, TensorRT, NCNN-Vulkan).
 
 Podesavanje ide iskljucivo preko CONFIGS liste ispod - bez argumenata komandne
 linije. Sve konfiguracije se obradjuju u jednom pokretanju i daju odvojenu sliku
@@ -67,6 +67,7 @@ CONFIG_DEFAULTS = {
     "out": None,  # None -> runtimes_<name>.png
     "legend_loc": "upper left",  # pozicija legende (matplotlib loc), "upper left", "lower right", "best"
     "show_title": False,  # True -> naslov iznad grafika
+    "show_metric": False,  # False -> bez oznake na y-osi kad je samo 1 metrika (ne vazi za group_by="size")
     "dpi": 140,
 }
 
@@ -110,6 +111,7 @@ CONFIGS = [
         "metrics": ["sr"],
         "unit": "fps",
         "group_by": "size",
+        "legend_loc": "lower right",
         "runtypes": ["onnxruntime-tensorrt", "tensorrt"],
     },
     {
@@ -185,7 +187,8 @@ def load_data(path, cols, cfg):
     return order_runtypes(data, cfg.runtypes), data, params
 
 
-def plot(runtypes, group_labels, values, title, unit, legend_loc, dpi, show_title=False):
+def plot(runtypes, group_labels, values, title, unit, legend_loc, dpi, show_title=False,
+         show_ylabels=True):
     """Grupisani horizontalni bar grafik: grupe na y-osi, bar po runtype-u.
 
     group_labels su oznake grupa (metrike ili velicine modela), a
@@ -211,7 +214,11 @@ def plot(runtypes, group_labels, values, title, unit, legend_loc, dpi, show_titl
             ax.text(v, y, zf(v, bar_spec), va="center", ha="left", fontsize=8.5)
 
     ax.set_yticks(centers)
-    ax.set_yticklabels(group_labels)
+    if show_ylabels:
+        ax.set_yticklabels(group_labels)
+    else:
+        ax.tick_params(axis="y", left=False, labelleft=False)
+        ax.grid(False, axis="y")  # bez oznake ostala bi samo linija mreze kroz sredinu
     ax.invert_yaxis()  # prva grupa na vrhu
     ax.set_xlabel(xlabel)
     if show_title:
@@ -276,7 +283,11 @@ def run_config(cfg):
     title = f"Runtime poredjenje - {cfg.res} ({METRIC_LABELS.get(cfg.metrics[0], cfg.metrics[0])})" \
         if group_by == "size" else f"Runtime poredjenje - {cfg.res}"
 
-    fig = plot(runtypes, group_labels, values, title, unit, cfg.legend_loc, cfg.dpi, cfg.show_title)
+    # Jedina metrika = jedna oznaka na y-osi -> moze da se sakrije; kod "size" oznake ostaju.
+    show_ylabels = cfg.show_metric or group_by == "size" or len(cfg.metrics) > 1
+
+    fig = plot(runtypes, group_labels, values, title, unit, cfg.legend_loc, cfg.dpi, cfg.show_title,
+               show_ylabels)
 
     suffix = "_fps" if unit == "fps" else ""
     out_path = save_fig(fig, get_results_path("analysis/runtimes")

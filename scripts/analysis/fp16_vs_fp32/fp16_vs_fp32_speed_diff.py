@@ -34,8 +34,8 @@ CONFIG_DEFAULTS = {
     "name": "default",  # koristi se za imena izlaznih fajlova
     "fp16_results": "results_2x_FPS.csv",  # CSV sa FP16 merenjima brzine
     "fp32_results": "results_2x_FPS_fp32.csv",  # CSV sa FP32 merenjima brzine
-    "fp16_runtype": None,  # vrednost kolone runtype za FP16 (uz isti CSV)
-    "fp32_runtype": None,  # vrednost kolone runtype za FP32 (uz isti CSV)
+    "fp16_runtype": "tensorrt",  # vrednost kolone runtype za FP16 (None -> bez filtera)
+    "fp32_runtype": "tensorrt",  # vrednost kolone runtype za FP32 (None -> bez filtera)
     "res": ["480p"],  # rezolucije (kolone) za poredjenje
     "archs": None,  # zadrzi samo ove arhitekture (npr. ["EDSR"])
     "include": None,  # zadrzi samo modele cije ime sadrzi neku nisku
@@ -46,6 +46,7 @@ CONFIG_DEFAULTS = {
     "plot_out": None,  # None -> ..._<name>.png
     "no_log": False,  # True -> samo ispis na ekran, bez fajla
     "no_plot": False,  # True -> bez grafika
+    "show_title": False,  # True -> naslov iznad grafika
     "dpi": 140,
 }
 
@@ -57,10 +58,6 @@ CONFIGS = [
         "name": "480p",
         "res": ["480p"],
     },
-    {
-        "name": "480p_720p",
-        "res": ["480p", "720p"],
-    },
 ]
 
 
@@ -70,6 +67,7 @@ CONFIGS = [
 def load_side(path: Path, runtype, keep, cfg):
     """Vrati {model_name: {"params": p, res: fps, ...}} za jednu precinost."""
     out = {}
+    dupes = set()
     required = list(cfg.res) + (["runtype"] if runtype is not None else [])
     for r in read_rows(path, required):
         name = r.get("model_name", "")
@@ -89,7 +87,14 @@ def load_side(path: Path, runtype, keep, cfg):
             v = to_float(r.get(col))
             if v:
                 rec[col] = v
+        if name in out:
+            dupes.add(name)
         out[name] = rec
+    # Vise redova za isti model (npr. razliciti runtype) -> pobedio bi poslednji red.
+    if dupes:
+        print(f"UPOZORENJE: {path.name} (runtype={runtype}) ima {len(dupes)} modela u vise "
+              f"redova; koristi se poslednji red. Zadaj runtype filter. "
+              f"Npr: {', '.join(sorted(dupes)[:3])}", file=sys.stderr)
     return out
 
 
@@ -156,7 +161,7 @@ def report(summary, fp16_path, fp32_path, n_common):
     print(f"Uparenih modela: {n_common}  (ubrzanje = FPS FP16 / FPS FP32)")
     print()
     header = (f"{'Rez.':<8} {'N':>4} {'min':>8} {'prosek':>8} {'medijana':>10} "
-              f"{'max':>8} {'FP16 brzi':>10}   najvece / najmanje ubrzanje")
+              f"{'max':>8} {'FP16 brži':>10}   najvece / najmanje ubrzanje")
     print(header)
     print("-" * len(header))
     for res, n, mn, mean, med, mx, faster_n, best_model, worst_model in summary:
@@ -184,15 +189,18 @@ def plot(series, cfg, plot_name):
                    label=res, edgecolors="white", linewidths=0.4)
 
     ax.axhline(1.0, color="#c0392b", ls="--", lw=1.1)
-    ax.text(0.99, 1.02, "FP16 brzi (iznad linije)", transform=ax.get_yaxis_transform(),
+    ax.text(0.99, 1.02, "FP16 brži (iznad linije)", transform=ax.get_yaxis_transform(),
             color="#c0392b", fontsize=8.5, ha="right", va="bottom")
 
     ax.set_xscale("log")
     set_param_ticks(ax, all_p)
     ax.set_xlabel("Broj parametara (log)")
-    ax.set_ylabel("ubrzanje (FPS FP16 / FPS FP32)")
-    ax.set_title("Ubrzanje FP16 nad FP32")
-    ax.legend(loc="best", fontsize=9)
+    ax.set_ylabel("Ubrzanje (FPS FP16 / FPS FP32)")
+    if cfg.show_title:
+        ax.set_title("Ubrzanje FP16 nad FP32")
+    # Legenda ima smisla samo ako je nacrtano vise rezolucija.
+    if sum(1 for res in cfg.res if series[res]) > 1:
+        ax.legend(loc="best", fontsize=9)
     fig.tight_layout()
 
     return save_fig(fig, get_results_path("analysis/fp16_vs_fp32") / plot_name)
