@@ -1,0 +1,37 @@
+\begin{tikzpicture}[
+	font=\sffamily\small,
+	node distance=5mm,
+	>=stealth,
+	blk/.style={draw, rounded corners=3pt, align=center, minimum height=11mm, inner sep=1mm},
+	io/.style={blk, fill=gray!15, draw=gray!60, minimum width=9mm},
+	interp/.style={blk, fill=yellow!45!orange!35, draw=orange!70, minimum width=24mm},
+	conv/.style={blk, fill=cyan!20, draw=cyan!50!black, minimum width=14mm},
+	relu/.style={blk, fill=violet!12, draw=violet!40, minimum width=12mm},
+	op/.style={circle, draw=gray!50, fill=gray!20, minimum size=8mm, inner sep=0pt}
+	]
+	% --- glavni tok (LR prostor) ---
+	\node[io] (lr) {LR};
+	\node[conv, right=8mm of lr] (c1) {Conv\\3\,\texttimes\,3};
+	\node[relu, right=0mm of c1] (r1) {ReLU};
+	\node[right=of r1] (dots) {$\cdots$};
+	\node[conv, right=of dots] (c2) {Conv\\3\,\texttimes\,3\\[-1pt]\footnotesize $3s^2$};
+	\node[relu, right=0mm of c2] (r2) {ReLU};
+	\node[interp, right=of r2] (ps) {Sub-pixel\\Conv};
+	\node[op, right=of ps] (add) {$+$};
+	\node[io, right=of add] (sr) {SR};
+
+	\draw[->] (lr) -- (c1);
+	\draw[->] (r1) -- (dots);
+	\draw[->] (dots) -- (c2);
+	\draw[->] (r2) -- (ps);
+	\draw[->] (ps) -- (add);
+	\draw[->] (add) -- (sr);
+
+	% grana interpolacije najblizeg suseda
+	\coordinate (split) at ($(lr.east)!0.5!(c1.west)$);
+	\coordinate (bl) at ($(split)+(0,-13mm)$);
+	\coordinate (br) at (add.south |- bl);
+	\node[interp, minimum height=8mm] (nn) at ($(bl)!0.5!(br)$) {Interpolacija najbližeg suseda};
+	\draw[->] (split) -- (bl) -- (nn.west);
+	\draw[->] (nn.east) -- (br) -- (add.south);
+\end{tikzpicture}

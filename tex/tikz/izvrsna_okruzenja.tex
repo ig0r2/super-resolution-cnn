@@ -1,0 +1,20 @@
+\begin{tikzpicture}[
+	font=\sffamily\small,
+	>=stealth,
+	blk/.style={draw, rounded corners=3pt, align=center, minimum height=9mm, inner sep=1.5mm},
+	src/.style={blk, fill=gray!15, draw=gray!60, minimum width=20mm},
+	fmt/.style={blk, fill=cyan!20, draw=cyan!60, minimum width=18mm},
+	rt/.style={blk, fill=yellow!45!orange!35, draw=orange!50, minimum width=36mm},
+	lbl/.style={font=\sffamily\scriptsize, midway, above, sloped}
+	]
+	\node[src] (pt) at (0,0) {PyTorch\\model};
+	\node[fmt] (onnx) at (34mm,0) {ONNX};
+	\node[rt] (ort) at (90mm,15mm) {ONNX Runtime\\{\scriptsize sesija + izvršni provajder}};
+	\node[rt] (trt) at (90mm,0) {TensorRT engine\\{\scriptsize za konkretnu GPU}};
+	\node[rt] (ncnn) at (90mm,-15mm) {NCNN\\{\scriptsize \texttt{.param} + \texttt{.bin}, Vulkan}};
+
+	\draw[->] (pt) -- node[lbl] {izvoz} (onnx);
+	\draw[->] (onnx.east) -- node[lbl] {učitavanje} (ort.west);
+	\draw[->] (onnx.east) -- node[lbl] {izgradnja} (trt.west);
+	\draw[->] (onnx.east) -- node[lbl] {konverzija (PNNX)} (ncnn.west);
+\end{tikzpicture}

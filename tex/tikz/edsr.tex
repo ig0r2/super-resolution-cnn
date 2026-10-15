@@ -1,0 +1,61 @@
+\begin{tikzpicture}[
+	font=\sffamily\small,
+	node distance=5mm,
+	>=stealth,
+	blk/.style={draw, rounded corners=3pt, align=center, minimum height=11mm, inner sep=1mm},
+	io/.style={blk, fill=gray!15, draw=gray!60, minimum width=9mm},
+	conv/.style={blk, fill=cyan!40, draw=cyan!70, minimum width=14mm},
+	relu/.style={blk, fill=violet!12, draw=violet!40, minimum width=12mm},
+	res/.style={blk, fill=green!50!black!15, draw=green!50!black!60, minimum width=20mm},
+	ps/.style={blk, fill=yellow!45!orange!35, draw=orange!50, minimum width=24mm},
+	op/.style={circle, draw=gray!50, fill=gray!20, minimum size=8mm, inner sep=0pt}
+	]
+	% --- glavni tok ---
+	\node[io] (lr) {LR};
+	\node[conv, right=of lr] (m1) {Conv\\3\,\texttimes\,3};
+	\node[res, right=7mm of m1] (rb1) {ResBlock};
+	\node[right=3mm of rb1] (dots) {$\cdots$};
+	\node[res, right=3mm of dots] (rb2) {ResBlock};
+	\node[conv, right=of rb2] (m2) {Conv\\3\,\texttimes\,3};
+	\node[op, right=of m2] (add) {$+$};
+	\node[ps, right=of add] (ps) {Sub-pixel\\Conv};
+	\node[conv, right=of ps] (m3) {Conv\\3\,\texttimes\,3};
+	\node[io, right=of m3] (sr) {SR};
+
+	\draw[->] (lr) -- (m1);
+	\draw[->] (m1) -- (rb1);
+	\draw[->] (rb1) -- (dots);
+	\draw[->] (dots) -- (rb2);
+	\draw[->] (rb2) -- (m2);
+	\draw[->] (m2) -- (add);
+	\draw[->] (add) -- (ps);
+	\draw[->] (ps) -- (m3);
+	\draw[->] (m3) -- (sr);
+	\coordinate (split) at ($(m1.east)!0.5!(rb1.west)$);
+	\draw[->] (split) -- ++(0,-9mm) -| (add.south);
+
+	% --- detalj rezidualnog bloka ---
+	\coordinate (bin) at ($(lr.west)+(0,29mm)$);
+	\node[conv, right=7mm of bin] (bc1) {Conv\\3\,\texttimes\,3};
+	\node[relu, right=0mm of bc1] (br) {ReLU};
+	\node[conv, right=0mm of br] (bc2) {Conv\\3\,\texttimes\,3};
+	\node[op, right=8mm of bc2] (mul) {$*$};
+	\node[op, above=4mm of mul] (alpha) {$\alpha$};
+	\node[op, right=6mm of mul] (badd) {$+$};
+	\coordinate[right=7mm of badd] (bout);
+
+	\draw[->] (bin) -- (bc1);
+	\draw[->] (bc2) -- (mul);
+	\draw[->] (alpha) -- (mul);
+	\draw[->] (mul) -- (badd);
+	\draw[->] (badd) -- (bout);
+	\coordinate (bsplit) at ($(bin)!0.5!(bc1.west)$);
+	\coordinate (bbot) at ($(bsplit)+(0,-9mm)$);
+	\draw[->] (bsplit) -- (bbot) -| (badd.south);
+
+	\node[anchor=south west] (title) at ($(bin)+(1mm,11mm)$) {ResBlock};
+	\begin{scope}[on background layer]
+		\node[draw=green!50!black!40, fill=green!50!black!4, rounded corners=6pt, inner sep=3mm,
+			fit=(bin)(title)(alpha)(bout)(bbot)] {};
+	\end{scope}
+\end{tikzpicture}

@@ -1,0 +1,53 @@
+\begin{tikzpicture}[
+	font=\sffamily\small,
+	node distance=5mm,
+	>=stealth,
+	blk/.style={draw, rounded corners=3pt, align=center, minimum height=10mm, inner sep=0.5mm},
+	io/.style={blk, fill=gray!15, draw=gray!60, minimum width=10mm},
+	conv/.style={blk, fill=cyan!20, draw=cyan!50, minimum width=20mm},
+	res/.style={blk, fill=green!50!black!15, draw=green!50!black!60, minimum width=22mm},
+	ub/.style={blk, fill=yellow!45!orange!35, draw=orange!50, minimum width=30mm},
+	interp/.style={blk, fill=yellow!45!orange!35, draw=orange!50, minimum height=8mm},
+	dec/.style={diamond, aspect=1, draw, rounded corners=2pt, align=center, font=\sffamily\scriptsize, inner sep=0.5mm, minimum size=15mm},
+	op/.style={circle, draw=gray!50, fill=gray!20, minimum size=7mm, inner sep=0pt}
+	]
+	% --- trup ---
+	\node[io] (lr) {LR};
+	\node[conv, right=8mm of lr] (m1) {Conv 3\,\texttimes\,3};
+	\node[right=3mm of m1] (dots) {$\cdots$};
+	\node[res, right=3mm of dots] (rb2) {ResBlock};
+
+	\draw[->] (lr) -- (m1);
+	\draw[->] (m1) -- (dots);
+	\draw[->] (dots) -- (rb2);
+
+	% --- izbor skale (kolona rombova) ---
+	\node[dec, right=8mm of rb2] (d2) {skala\\\texttimes2};
+	\node[dec] (d3) at ($(d2)+(0,-20mm)$) {skala\\\texttimes3};
+	\node[dec] (d4) at ($(d2)+(0,-40mm)$) {skala\\\texttimes4};
+	\draw[->] (rb2) -- (d2);
+	\draw[->] (d2) -- (d3);
+	\draw[->] (d3) -- (d4);
+
+	% --- blokovi za uvećanje kao pojedinačni čvorovi ---
+	\foreach \s in {2,3,4} {
+		\node[ub, right=8mm of d\s] (u\s) {Sub-pixel Conv(\s)};
+		\draw[->] (d\s) -- (u\s);
+	}
+
+	% --- spajanje grana ---
+	\coordinate (merge) at ($(u2.east)+(6mm,0)$);
+	\node[op, right=8mm of merge] (add) {$+$};
+	\node[io, right=of add] (sr) {SR};
+	\draw[->] (u2.east) -- (add.west);
+	\draw[->] (u4.east) -| (merge);
+	\draw (u3.east) -- (merge |- u3);
+	\draw[->] (add) -- (sr);
+
+	% --- bilinearna osnova (iznad trupa) ---
+	\coordinate (split) at ($(lr.east)!0.5!(m1.west)$);
+	\coordinate (btop) at ($(split)+(0,16mm)$);
+	\node[interp, minimum width=40mm] (bil) at ($(btop)!0.5!(add.north |- btop)$) {Bilinearna interpolacija};
+	\draw[->] (split) |- (bil.west);
+	\draw[->] (bil.east) -| (add.north);
+\end{tikzpicture}

@@ -1,0 +1,30 @@
+\begin{tikzpicture}[
+	font=\sffamily\small,
+	node distance=5mm,
+	>=stealth,
+	blk/.style={draw, rounded corners=3pt, align=center, minimum height=11mm, inner sep=1mm},
+	io/.style={blk, fill=gray!15, draw=gray!60, minimum width=9mm},
+	interp/.style={blk, fill=yellow!45!orange!35, draw=orange!50, minimum width=24mm},
+	conv/.style={blk, fill=cyan!20, draw=cyan!50, minimum width=14mm},
+	relu/.style={blk, fill=violet!12, draw=violet!40, minimum width=12mm},
+	lbl/.style={align=center, below=1.5mm}
+	]
+	\node[io] (lr) {LR};
+	\node[interp, right=of lr] (bic) {Bikubna\\interpolacija};
+	\node[conv, right=of bic] (c1) {Conv\\9\,\texttimes\,9};
+	\node[relu, right=0mm of c1] (r1) {ReLU};
+	\node[conv, right=of r1] (c2) {Conv\\1\,\texttimes\,1};
+	\node[relu, right=0mm of c2] (r2) {ReLU};
+	\node[conv, right=of r2] (c3) {Conv\\5\,\texttimes\,5};
+	\node[io, right=of c3] (sr) {SR};
+
+	\draw[->] (lr) -- (bic);
+	\draw[->] (bic) -- (c1);
+	\draw[->] (r1) -- (c2);
+	\draw[->] (r2) -- (c3);
+	\draw[->] (c3) -- (sr);
+
+	\node[lbl] at ($(c1.south west)!0.5!(r1.south east)$) {Ekstrakcija\\delova};
+	\node[lbl] at ($(c2.south west)!0.5!(r2.south east)$) {Nelinearno\\mapiranje};
+	\node[lbl] at (c3.south) {Rekonstrukcija};
+\end{tikzpicture}

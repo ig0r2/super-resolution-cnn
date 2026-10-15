@@ -1,0 +1,136 @@
+\begin{tikzpicture}[
+	font=\sffamily\small,
+	>=stealth,
+	blk/.style={draw, rounded corners=3pt, align=center, minimum height=7mm, inner sep=0.5mm},
+	io/.style={blk, fill=gray!15, draw=gray!60, minimum width=10mm},
+	conv/.style={blk, fill=cyan!20, draw=cyan!50, minimum width=30mm},
+	pconv/.style={blk, fill=cyan!20, draw=cyan!50, minimum width=22mm},
+	srb/.style={blk, fill=green!50!black!15, draw=green!50!black!60, minimum width=22mm},
+	res/.style={blk, fill=green!50!black!15, draw=green!50!black!60, minimum width=30mm},
+	cat/.style={blk, fill=magenta!12, draw=magenta!40, minimum width=30mm},
+	act/.style={blk, fill=violet!22, draw=violet!50, minimum width=30mm},
+	lrelu/.style={act, fill=violet!12, draw=violet!40},
+	ps/.style={blk, fill=yellow!45!orange!35, draw=orange!50, minimum width=30mm},
+	op/.style={circle, draw=gray!50, fill=gray!20, minimum size=7mm, inner sep=0pt}
+	]
+	% --- glavni tok ---
+	\begin{scope}[xshift=-30mm]
+		\node[io] (lr) at (0,10mm) {LR};
+		\node[conv] (m1) at (0,0) {Conv 3\,\texttimes\,3};
+		\node[res] (b1) at (0,-13mm) {RFDB};
+		\node[res] (b2) at (0,-24mm) {RFDB};
+		\node[res] (b3) at (0,-35mm) {RFDB};
+		\node[res] (b4) at (0,-46mm) {RFDB};
+		\node[cat] (mcat) at (0,-59mm) {Channel Concat};
+		\node[conv] (m2) at (0,-66mm) {Conv 3\,\texttimes\,3};
+		\node[lrelu] (mact) at (0,-73mm) {LReLU};
+		\node[conv] (m3) at (0,-80mm) {Conv 3\,\texttimes\,3};
+		\node[op] (madd) at (0,-91mm) {$+$};
+		\node[ps] (mps) at (0,-101mm) {Sub-pixel Conv};
+		\node[io] (sr) at (0,-111mm) {SR};
+	\end{scope}
+
+	\draw[->] (lr) -- (m1);
+	\draw[->] (m1) -- (b1);
+	\draw[->] (b1) -- (b2);
+	\draw[->] (b2) -- (b3);
+	\draw[->] (b3) -- (b4);
+	\draw[->] (b4) -- (mcat);
+	\draw[->] (m3) -- (madd);
+	\draw[->] (madd) -- (mps);
+	\draw[->] (mps) -- (sr);
+
+	% izlazi blokova ka Channel Concat
+	\coordinate (bus) at ($(b1.east)+(4mm,0)$);
+	\coordinate (t1) at ($(b1.south)!0.5!(b2.north)$);
+	\coordinate (t2) at ($(b2.south)!0.5!(b3.north)$);
+	\coordinate (t3) at ($(b3.south)!0.5!(b4.north)$);
+	\coordinate (t4) at ($(b4.south)!0.5!(mcat.north)$);
+	\draw[->] (t1) -- (t1 -| bus);
+	\draw[->] (t2) -- (t2 -| bus);
+	\draw[->] (t3) -- (t3 -| bus);
+	\draw (t1 -| bus) -- (t4 -| bus);
+	\draw[->] (t4 -| bus) -- (t4);
+
+	% duga rezidualna veza
+	\coordinate (sk) at ($(m1.south)!0.5!(b1.north)$);
+	\draw[->] (sk) -- ++(-19mm,0) |- (madd.west);
+
+	% --- detalj RFDB bloka (SRB kao jedan čvor) ---
+	\begin{scope}[xshift=20mm]
+		\coordinate (pin) at (0,12mm);
+		\coordinate (psk) at (0,7mm);
+		\node[pconv] (d1) at (0,-4mm) {Conv 1\,\texttimes\,1};
+		\node[srb]   (s1) at (25mm,-4mm) {SRB};
+		\node[pconv] (d2) at (13mm,-24mm) {Conv 1\,\texttimes\,1};
+		\node[srb]   (s2) at (38mm,-24mm) {SRB};
+		\node[pconv] (d3) at (26mm,-44mm) {Conv 1\,\texttimes\,1};
+		\node[srb]   (s3) at (51mm,-44mm) {SRB};
+		\node[pconv] (r4) at (51mm,-58mm) {Conv 3\,\texttimes\,3};
+		\node[cat] (pcat) at (0,-80mm) {Channel Concat};
+		\node[conv] (c11) at (0,-87mm) {Conv 1\,\texttimes\,1};
+		\node[act] (esa) at (0,-94mm) {ESA};
+		\node[op] (padd) at (0,-104mm) {$+$};
+		\coordinate (pout) at (0,-112mm);
+		\node[anchor=north west] (ptitle) at (-23mm,12mm) {RFDB};
+		% razdelne linije faza
+		\coordinate (w1) at (0,3mm);    \coordinate (e1) at (25mm,3mm);
+		\coordinate (w2) at (13mm,-16mm); \coordinate (e2) at (38mm,-16mm);
+		\coordinate (w3) at (26mm,-35mm); \coordinate (e3) at (51mm,-35mm);
+	\end{scope}
+
+	% aktivacije posle Conv 1x1 i poslednje Conv 3x3
+	\foreach \n in {d1,d2,d3,r4}
+		\node[lrelu, minimum width=22mm, below=0mm of \n] (a\n) {LReLU};
+
+	\draw (pin) -- (w1) -- (e1);
+	\draw[->] (w1) -- (d1.north);
+	\draw[->] (e1) -- (s1.north);
+	\draw (s1.south) -- (s1.south |- w2);
+	\draw (w2) -- (e2);
+	\draw[->] (w2) -- (d2.north);
+	\draw[->] (e2) -- (s2.north);
+	\draw (s2.south) -- (s2.south |- w3);
+	\draw (w3) -- (e3);
+	\draw[->] (w3) -- (d3.north);
+	\draw[->] (e3) -- (s3.north);
+	\draw[->] (s3) -- (r4);
+	% destilovana obeležja ka Channel Concat
+	\draw[->] (ad1.south) to[out=-90, in=95] (pcat.north);
+	\draw[->] (ad2.south) to[out=-90, in=85] (pcat.north);
+	\draw[->] (ad3.south) to[out=-90, in=75] (pcat.north);
+	\draw[->] (ar4.south) -- (pcat.north);
+	% kraj bloka
+	\draw[->] (esa) -- (padd);
+	\draw[->] (padd) -- (pout);
+	\draw[->] (psk) -- ++(-20mm,0) |- (padd.west);
+
+	\begin{scope}[on background layer]
+		\node[draw=green!50!black!40, fill=green!50!black!4, rounded corners=6pt, inner sep=2.5mm,
+			fit=(ptitle)(pin)(s3)(ar4)(pout)] (rfdbpanel) {};
+	\end{scope}
+
+	% --- detalj SRB bloka ---
+	\begin{scope}[xshift=106mm]
+		\coordinate (sin) at (0,12mm);
+		\coordinate (ssk) at (0,7mm);
+		\node[pconv] (sc) at (0,-2mm) {Conv 3\,\texttimes\,3};
+		\node[op] (sadd) at (0,-14mm) {$+$};
+		\node[lrelu, minimum width=22mm] (sact) at (0,-25mm) {LReLU};
+		\coordinate (sout) at (0,-35mm);
+		\node[anchor=north west] (stitle) at (-18mm,12mm) {SRB};
+		\coordinate (sleft) at (-15mm,7mm);
+	\end{scope}
+
+	\draw[->] (sin) -- (sc.north);
+	\draw[->] (sc) -- (sadd);
+	\draw[->] (sadd) -- (sact);
+	\draw[->] (sact) -- (sout);
+	\draw[->] (ssk) -- (sleft) |- (sadd.west);
+
+	\begin{scope}[on background layer]
+		\node[draw=green!50!black!40, fill=green!50!black!4, rounded corners=6pt, inner sep=2.5mm,
+			fit=(stitle)(sin)(sc)(sleft)(sout)] (srbpanel) {};
+	\end{scope}
+
+\end{tikzpicture}

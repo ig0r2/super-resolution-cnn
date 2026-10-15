@@ -1,0 +1,29 @@
+\begin{tikzpicture}[
+	node distance=4mm,
+	box/.style={draw, rounded corners=2pt, align=center, font=\footnotesize,
+		minimum height=10mm, text width=20mm, inner sep=1mm},
+	>=stealth
+	]
+	% --- zajednički deo ---
+	\node[box, text width=19mm] (load) {Učitavanje\\fajla};
+	\node[box, text width=19mm, right=of load] (demux) {Demulti-\\pleksiranje};
+
+	% --- video (gore) i zvuk (dole) ---
+	\node[box, anchor=west] (vdec) at ($(demux.east)+(7mm,8mm)$) {Dekodiranje\\videa};
+	\node[box, anchor=west] (adec) at ($(demux.east)+(7mm,-8mm)$) {Dekodiranje\\zvuka};
+
+	% --- sinhronizacija obuhvata oba reda ---
+	\node[box, text width=25mm, minimum height=26mm, anchor=west] (sync) at ($(vdec.east |- demux)+(4mm,0)$) {Sinhronizacija\\slike i zvuka};
+	\node[box, text width=22mm, anchor=west] (disp) at ($(sync.east |- vdec)+(4mm,0)$) {Prikaz na\\ekranu};
+	\node[box, text width=22mm, anchor=west] (play) at ($(sync.east |- adec)+(4mm,0)$) {Reprodukcija\\zvuka};
+
+	\draw[->] (load) -- (demux);
+	\coordinate (split) at ($(demux.east)+(3.5mm,0)$);
+	\draw (demux.east) -- (split);
+	\draw[->] (split) |- (vdec.west);
+	\draw[->] (split) |- (adec.west);
+	\draw[->] (vdec) -- (vdec -| sync.west);
+	\draw[->] (adec) -- (adec -| sync.west);
+	\draw[->] (sync.east |- disp) -- (disp);
+	\draw[->] (sync.east |- play) -- (play);
+\end{tikzpicture}

@@ -1,0 +1,24 @@
+\begin{tikzpicture}[
+	node distance=4mm,
+	box/.style={draw, rounded corners=2pt, align=center, font=\footnotesize,
+		minimum height=10mm, minimum width=13mm, inner sep=1mm},
+	>=stealth
+	]
+	\node[box] (dec) {Dekoder\\(CPU)};
+	\node[box, right=of dec] (h2d) {Prenos\\na GPU};
+	\node[box, right=of h2d] (pre) {Pred-\\obrada};
+	\node[box, right=of pre] (sr) {SR\\mreža};
+	\node[box, right=of sr] (post) {Post-\\obrada};
+	\node[draw, dashed, rounded corners=4pt, inner sep=2mm, fit=(pre)(sr)(post),
+	label={[font=\footnotesize]above:Izvršno okruženje (GPU)}] {};
+	\node[box, right=of post] (d2h) {Prenos\\na CPU};
+	\node[box, right=of d2h] (resize) {Bikubno\\skaliranje};
+	\node[box, right=of resize] (disp) {Prikaz\\(OpenCV)};
+	\draw[->] (dec) -- (h2d);
+	\draw[->] (h2d) -- (pre);
+	\draw[->] (pre) -- (sr);
+	\draw[->] (sr) -- (post);
+	\draw[->] (post) -- (d2h);
+	\draw[->] (d2h) -- (resize);
+	\draw[->] (resize) -- (disp);
+\end{tikzpicture}

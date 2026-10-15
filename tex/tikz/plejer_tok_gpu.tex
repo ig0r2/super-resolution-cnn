@@ -1,0 +1,20 @@
+\begin{tikzpicture}[
+	node distance=3mm,
+	box/.style={draw, rounded corners=2pt, align=center, font=\footnotesize,
+		minimum height=10mm, text width=16mm, inner sep=1mm},
+	>=stealth
+	]
+	\node[box] (dec) {Dekoder\\(NVDEC)};
+	\node[box, right=of dec] (pre) {Pred-\\obrada};
+	\node[box, right=of pre] (sr) {SR\\mreža};
+	\node[box, right=of sr] (post) {Post-\\obrada};
+	\node[box, text width=19mm, right=of post] (resize) {Bikubno\\skaliranje};
+	\node[box, right=of resize] (disp) {Prikaz\\(OpenGL)};
+	\node[draw, dashed, rounded corners=4pt, inner sep=2mm, fit=(dec)(disp),
+	label={[font=\footnotesize]above:Grafička kartica}] {};
+	\draw[->] (dec) -- (pre);
+	\draw[->] (pre) -- (sr);
+	\draw[->] (sr) -- (post);
+	\draw[->] (post) -- (resize);
+	\draw[->] (resize) -- (disp);
+\end{tikzpicture}

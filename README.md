@@ -5,7 +5,7 @@ video-zapisa u realnom vremenu. Model se primenjuje nezavisno nad svakim frejmom
 na najboljem kvalitetu, već na kvalitetu koji se postiže unutar vremenskog budžeta jednog frejma (~33.3 ms za 30 FPS,
 ~16.7 ms za 60 FPS).
 
-LaTeX izvor rada je u `tex/MasterRad.tex`.
+Rad je u [`tex/MasterRad.pdf`](tex/MasterRad.pdf).
 
 Rad odgovara na pitanja:
 

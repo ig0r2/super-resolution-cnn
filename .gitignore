@@ -12,6 +12,7 @@ reports/
 !/tex/**/*.tex
 !/tex/**/*.bib
 !/tex/**/*.pdf
+!/tex/images/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
