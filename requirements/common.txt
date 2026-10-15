@@ -1,0 +1,5 @@
+# Shared by everything (utils.path reads YAML, models import PIL). Torch comes from torch-*.txt.
+numpy==2.3.5
+PyYAML==6.0.3
+pillow==12.0.0
+tqdm==4.67.1

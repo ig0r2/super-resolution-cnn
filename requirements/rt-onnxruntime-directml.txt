@@ -1,0 +1,4 @@
+# Runtimes "onnxruntime-directml" / "onnxruntime-cpu" (any DirectX 12 GPU on Windows: AMD / Intel / NVIDIA).
+# The onnxruntime-* packages share one module: install only one rt-onnxruntime-*.txt per venv.
+-r player.txt
+onnxruntime-directml

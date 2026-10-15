@@ -1,0 +1,4 @@
+# Runtime "onnxruntime-cpu" only.
+# The onnxruntime-* packages share one module: install only one rt-onnxruntime-*.txt per venv.
+-r player.txt
+onnxruntime

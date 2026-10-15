@@ -1,0 +1,7 @@
+# Video player core: PyAV / cv2 decoding, cv2 display, audio, ONNX export. Add one or more rt-*.txt.
+-r common.txt
+opencv-python==4.13.0.92
+av==18.1.0
+sounddevice==0.5.6
+soundfile==0.14.0
+onnx==1.19.1

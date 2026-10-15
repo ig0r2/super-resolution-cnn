@@ -1,0 +1,4 @@
+# Decoder "nvdec" (NVIDIA GPU decode) and the CUDA-GL "opengl" display. Needs torch-cuda.txt.
+-r rt-opengl.txt
+PyNvVideoCodec==2.2.3
+cuda-python==13.4.1

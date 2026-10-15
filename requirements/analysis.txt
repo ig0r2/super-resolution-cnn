@@ -1,0 +1,4 @@
+# Plots and CSV analysis (scripts/analysis, utils/plot.py).
+-r common.txt
+matplotlib==3.10.8
+pandas==3.0.2

@@ -1,0 +1,4 @@
+# Runtime "opengl" (GLSL shaders, any OpenGL GPU) with decoder pyav / cv2.
+-r player.txt
+glfw==2.10.2
+PyOpenGL==3.1.10

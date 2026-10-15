@@ -1,0 +1,7 @@
+# Training / evaluation / inference scripts (scripts/training, scripts/evaluation, scripts/inference).
+-r common.txt
+torchmetrics==1.8.2
+matplotlib==3.10.8
+pandas==3.0.2
+opencv-python==4.13.0.92
+av==18.1.0

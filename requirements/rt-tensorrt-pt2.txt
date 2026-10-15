@@ -1,0 +1,7 @@
+# Runtime "tensorrt-pt2" (torch_tensorrt, NVIDIA, needs torch-cuda.txt).
+# torch_tensorrt 2.9.0 requires tensorrt>=10.13,<10.14, which conflicts with rt-tensorrt.txt (10.14.1.48), so it
+# is not part of the root requirements.txt. On its own it pulls tensorrt 10.13 (TensorRT engines are tied to the
+# version that built them, so cached exports/trt/ engines get rebuilt).
+--extra-index-url https://download.pytorch.org/whl/cu130
+-r player.txt
+torch_tensorrt==2.9.0+cu130

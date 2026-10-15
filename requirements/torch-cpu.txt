@@ -1,0 +1,4 @@
+# PyTorch CPU-only (no NVIDIA GPU: AMD / Intel / laptop). Pick exactly one torch-*.txt.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.9.1+cpu
+torchvision==0.24.1+cpu

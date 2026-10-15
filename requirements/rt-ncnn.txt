@@ -1,0 +1,4 @@
+# Runtime "ncnn-vulkan" (any Vulkan GPU; pnnx converts the ONNX export).
+-r player.txt
+ncnn==1.0.20260526
+pnnx==20260526

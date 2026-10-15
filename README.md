@@ -16,6 +16,95 @@ Rad odgovara na pitanja:
   inferencije?
 - U kojoj meri izvršno okruženje (PyTorch, ONNX Runtime, TensorRT, NCNN) i numerička preciznost utiču na brzinu?
 
+## Brzi početak
+
+Potreban je Python 3.12.
+
+### Video-plejer
+
+Za plejer nije potrebno treniranje ni datasetovi, dovoljni su istrenirani modeli:
+
+1. Preuzeti modele sa
+   [SharePoint-a](https://pmfedu-my.sharepoint.com/:f:/g/personal/igor_jovanovic_pmf_edu_rs/IgBzRJMo-mxaR63KIe2Bu76uAbCnGjuVHjfk00zWbs2GmGk?e=vASt3k).
+2. Preuzeti folder `pth/` staviti u `exports/`.
+3. Instalirati zavisnosti prema grafičkoj kartici (tabele ispod).
+4. Pokrenuti GUI iz korena projekta:
+
+   ```bash
+   python videoplayer_gui.py
+   ```
+
+U GUI-ju se bira video, zatim arhitektura i model, pa runtime, dekoder i prikaz, i pokreće dugmetom **Play**.
+Runtime-ovi, dekoderi i prikazi koji na računaru nisu dostupni (paket nije instaliran ili ne ide uz izabrani model
+ili runtime) prikazani su sivo.
+
+Prvo pokretanje modela za datu rezoluciju videa traje duže, jer se model izvozi (ONNX, TensorRT engine, ncnn) i
+kešira u `exports/`; svako sledeće pokretanje koristi keš.
+
+### Instalacija
+
+#### NVIDIA grafička kartica
+
+```bash
+pip install -r requirements/torch-cuda.txt -r requirements/rt-tensorrt.txt -r requirements/nvdec.txt
+```
+
+U GUI-ju: runtime `tensorrt`, dekoder `nvdec`, prikaz `opengl` (brži kod malih modela) ili `cv2`.
+
+#### Bez NVIDIA grafičke kartice (AMD, Intel)
+
+TensorRT, NVDEC i CUDA rade samo na NVIDIA karticama, pa se umesto njih koriste runtime-ovi koji rade na bilo kojoj
+grafičkoj kartici. PyTorch se instalira u verziji bez CUDA-e (`torch-cpu.txt`); on služi samo za učitavanje i izvoz
+modela, a samu superrezoluciju radi grafička kartica preko izabranog runtime-a.
+
+Windows:
+
+```bash
+pip install -r requirements/torch-cpu.txt -r requirements/rt-onnxruntime-directml.txt -r requirements/rt-ncnn.txt -r requirements/rt-opengl.txt
+```
+
+Linux (DirectML postoji samo na Windows-u):
+
+```bash
+pip install -r requirements/torch-cpu.txt -r requirements/rt-ncnn.txt -r requirements/rt-opengl.txt
+```
+
+U GUI-ju je dekoder uvek `pyav` (ili `cv2`), a runtime jedan od:
+
+| Runtime                | Prikaz   | Modeli                          |
+|------------------------|----------|---------------------------------|
+| `opengl`               | `opengl` | samo `multiscale/SR_FastEDSR_*` |
+| `onnxruntime-directml` | `cv2`    | svi (samo Windows)              |
+| `ncnn-vulkan`          | `cv2`    | svi                             |
+
+Runtime-ovi `tensorrt`, `tensorrt-pt2`, `onnxruntime-cuda`, `onnxruntime-tensorrt` i dekoder `nvdec` biće sivi.
+
+### Treniranje i ostalo
+
+| Namena                                          | Komanda                                                                |
+|-------------------------------------------------|------------------------------------------------------------------------|
+| Treniranje i evaluacija, NVIDIA grafička        | `pip install -r requirements/torch-cuda.txt -r requirements/train.txt` |
+| Treniranje i evaluacija, bez NVIDIA grafičke    | `pip install -r requirements/torch-cpu.txt -r requirements/train.txt`  |
+| Sve (NVIDIA): trening, analiza, svi runtime-ovi | `pip install -r requirements.txt`                                      |
+
+Requirements su podeljene na delove u `requirements/`, pa se instalira samo ono što je potrebno. Uvek se bira **tačno
+jedan** `torch-*.txt` (PyTorch sa CUDA-om ili bez), pa se na njega dodaju delovi po nameni. Pojedinačni delovi:
+
+| Fajl                                             | Sadrži                                                                     |
+|--------------------------------------------------|----------------------------------------------------------------------------|
+| `torch-cuda.txt` / `torch-cpu.txt`               | PyTorch sa CUDA 13.0 (NVIDIA) / samo CPU                                   |
+| `train.txt`                                      | treniranje, evaluacija, inferenca (torchmetrics, matplotlib, pandas...)    |
+| `analysis.txt`                                   | grafici i analiza CSV rezultata                                            |
+| `player.txt`                                     | osnova plejera: PyAV i cv2 dekodiranje, cv2 prikaz, zvuk, ONNX izvoz       |
+| `rt-tensorrt.txt`                                | runtime `tensorrt` (NVIDIA)                                                |
+| `rt-tensorrt-pt2.txt`                            | runtime `tensorrt-pt2`; traži TensorRT 10.13, pa nije u `requirements.txt` |
+| `rt-onnxruntime-{gpu,directml,openvino,cpu}.txt` | ONNX Runtime; **samo jedan** po okruženju (paketi dele isti modul)         |
+| `rt-ncnn.txt`                                    | runtime `ncnn-vulkan` (bilo koja Vulkan grafička)                          |
+| `rt-opengl.txt`                                  | runtime `opengl` (GLSL šejderi, bilo koja OpenGL grafička)                 |
+| `nvdec.txt`                                      | dekoder `nvdec` i zero-copy OpenGL prikaz (NVIDIA)                         |
+
+Svaki `rt-*.txt` i `nvdec.txt` već uključuje `player.txt`, a delovi se mogu slobodno kombinovati.
+
 ## Sadržaj
 
 1. [Interpolacijske metode](#interpolacijske-metode)
@@ -49,15 +138,15 @@ teksture kojih nema u ulazu.
 Svi modeli su registrovani u `MODEL_REGISTRY` (`models/__init__.py`) i instanciraju se po imenu klase iz YAML
 konfiguracije. Konfiguracije se označavaju sa `B/nf` - broj blokova / broj kanala.
 
-| Model    | Klasa                                | Fajl                       | Ulaz mreže               | Izlaz                     |
-|----------|--------------------------------------|----------------------------|--------------------------|---------------------------|
-| SRCNN    | `SR_SRCNN`                           | `models/srcnn/model.py`    | bikubno uvećana slika    | SR slika                  |
-| VDSR     | `SR_VDSR`                            | `models/vdsr/model.py`     | bikubno uvećana slika    | rezidual + bicubic        |
-| EDSR     | `SR_EDSR`, `SR_EDSR_Multi`           | `models/edsr/model.py`     | LR slika                 | SR slika (PixelShuffle)   |
-| IMDN     | `SR_IMDN`, `SR_IMDN_Multi`           | `models/imdn/model.py`     | LR slika                 | SR slika (PixelShuffle)   |
-| RFDN     | `SR_RFDN`, `SR_RFDN_Multi`           | `models/rfdn/model.py`     | LR slika                 | SR slika (PixelShuffle)   |
-| ABPN     | `SR_ABPN`, `SR_ABPN_Multi`           | `models/abpn/model.py`     | LR slika                 | rezidual + nearest        |
-| FastEDSR | `SR_FastEDSR`, `SR_FastEDSR_Multi`   | `models/edsr/fast_edsr.py` | LR slika                 | rezidual + bilinear       |
+| Model    | Klasa                              | Fajl                       | Ulaz mreže            | Izlaz                   |
+|----------|------------------------------------|----------------------------|-----------------------|-------------------------|
+| SRCNN    | `SR_SRCNN`                         | `models/srcnn/model.py`    | bikubno uvećana slika | SR slika                |
+| VDSR     | `SR_VDSR`                          | `models/vdsr/model.py`     | bikubno uvećana slika | rezidual + bicubic      |
+| EDSR     | `SR_EDSR`, `SR_EDSR_Multi`         | `models/edsr/model.py`     | LR slika              | SR slika (PixelShuffle) |
+| IMDN     | `SR_IMDN`, `SR_IMDN_Multi`         | `models/imdn/model.py`     | LR slika              | SR slika (PixelShuffle) |
+| RFDN     | `SR_RFDN`, `SR_RFDN_Multi`         | `models/rfdn/model.py`     | LR slika              | SR slika (PixelShuffle) |
+| ABPN     | `SR_ABPN`, `SR_ABPN_Multi`         | `models/abpn/model.py`     | LR slika              | rezidual + nearest      |
+| FastEDSR | `SR_FastEDSR`, `SR_FastEDSR_Multi` | `models/edsr/fast_edsr.py` | LR slika              | rezidual + bilinear     |
 
 - **SRCNN** ([rad](https://arxiv.org/pdf/1501.00092)) - tri konvolucije (9×9, 1×1, 5×5) nad bikubno uvećanom slikom.
   Ovde sa paddingom i nad sva tri RGB kanala, umesto samo nad Y kanalom.
@@ -84,8 +173,8 @@ Detaljniji opis svake arhitekture je u komentarima klasa i u poglavlju 3 rada.
 - **Skup podataka:** DIV2K - 800 slika za treniranje, 100 za validaciju (~2K rezolucija). Preuzima se automatski.
 - **Isečci:** HR isečak 96×96, LR isečak bikubnim smanjivanjem (48×48, 32×32, 24×24 za ×2, ×3, ×4). Nasumično
   isecanje, horizontalna refleksija i rotacije za 90°. Sva tri RGB kanala, vrednosti u `[0, 1]`.
-- **Parametri:** ℓ1 gubitak, Adam, batch 16, lr `1e-4` prepolovljen posle 300 i 600 epoha, ukupno 800 epoha
-  (1 epoha = 1 isečak po slici = 50 ažuriranja). SRCNN se trenira dvostruko duže. Validacija svakih 50 epoha, čuva
+- **Parametri:** ℓ1 gubitak, Adam, batch 16, lr `1e-4` prepolovljen posle 300 i 600 epoha, ukupno 800 epoha (1 epoha = 1
+  isečak po slici = 50 ažuriranja). SRCNN se trenira dvostruko duže. Validacija svakih 50 epoha, čuva
   se model sa najvećim SSIM-om.
 
 Implementacija: `scripts/training/training_script.py`, `utils/trainers/`, `datasets/`. Konfiguracija u `config/*.yaml`
@@ -147,15 +236,15 @@ LPIPS strože kažnjava zamućenje od blokova.
 
 Najbolja konfiguracija po metrici unutar opsega broja parametara:
 
-| Opseg     | Najbolji PSNR ↑        | Najbolji SSIM ↑        | Najbolji LPIPS ↓        |
-|-----------|------------------------|------------------------|-------------------------|
-| < 10K     | FastEDSR 4/8 (32.74)   | FastEDSR 4/8 (0.920)   | ABPN 2/16 (0.127)       |
-| 10K-50K   | VDSR 5/32 (33.35)      | VDSR 5/32 (0.926)      | VDSR 5/32 (0.105)       |
-| 50K-200K  | VDSR 5/64 (33.64)      | VDSR 5/64 (0.929)      | ABPN 8/48 (0.102)       |
-| 200K-500K | VDSR 10/64 (33.84)     | VDSR 10/64 (0.931)     | FastEDSR 4/64 (0.096)   |
-| 500K-1M   | RFDN 2/96 (33.90)      | RFDN 2/96 (0.931)      | ABPN 4/128 (0.095)      |
-| 1M-3M     | RFDN 4/128 (34.25)     | RFDN 4/128 (0.934)     | ABPN 4/256 (0.093)      |
-| > 3M      | RFDN 4/256 (34.48)     | RFDN 4/256 (0.936)     | EDSR 32/256 (0.088)     |
+| Opseg     | Najbolji PSNR ↑      | Najbolji SSIM ↑      | Najbolji LPIPS ↓      |
+|-----------|----------------------|----------------------|-----------------------|
+| < 10K     | FastEDSR 4/8 (32.74) | FastEDSR 4/8 (0.920) | ABPN 2/16 (0.127)     |
+| 10K-50K   | VDSR 5/32 (33.35)    | VDSR 5/32 (0.926)    | VDSR 5/32 (0.105)     |
+| 50K-200K  | VDSR 5/64 (33.64)    | VDSR 5/64 (0.929)    | ABPN 8/48 (0.102)     |
+| 200K-500K | VDSR 10/64 (33.84)   | VDSR 10/64 (0.931)   | FastEDSR 4/64 (0.096) |
+| 500K-1M   | RFDN 2/96 (33.90)    | RFDN 2/96 (0.931)    | ABPN 4/128 (0.095)    |
+| 1M-3M     | RFDN 4/128 (34.25)   | RFDN 4/128 (0.934)   | ABPN 4/256 (0.093)    |
+| > 3M      | RFDN 4/256 (34.48)   | RFDN 4/256 (0.936)   | EDSR 32/256 (0.088)   |
 
 Grafici dele arhitekture u tri panela: VDSR (radi nad uvećanom slikom), IMDN/RFDN (destilacija i pažnja) i
 ABPN/FastEDSR (samo konvolucije + rezidual nad interpoliranim ulazom), sa EDSR-om kao zajedničkom referencom.
@@ -182,30 +271,30 @@ Za izbor modela za plejer najbitnije je koliki se kvalitet postiže uz zadatu mi
 
 Najbolji SSIM ↑ uz zadati minimalni FPS (480p):
 
-| FPS      |    ≥20 |    ≥30 |    ≥60 |    ≥80 |   ≥120 |   ≥250 |   ≥500 |
-|----------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
-| VDSR     | 0.9329 | 0.9307 | 0.9307 | 0.9290 | 0.9290 | 0.9265 | 0.9090 |
-| EDSR     | 0.9326 | 0.9326 | **0.9326** | 0.9278 | 0.9274 | 0.9244 | 0.9213 |
-| IMDN     | 0.9320 | 0.9320 | 0.9307 | 0.9293 | 0.9277 | 0.9190 |    --- |
-| RFDN     | **0.9340** | **0.9327** | 0.9311 | 0.9304 | 0.9259 | 0.9183 | 0.9114 |
-| FastEDSR | 0.9333 | 0.9320 | 0.9320 | **0.9320** | 0.9296 | **0.9296** | 0.9259 |
-| ABPN     | 0.9319 | 0.9319 | 0.9301 | 0.9301 | **0.9301** | 0.9278 | **0.9262** |
+| FPS      |        ≥20 |        ≥30 |        ≥60 |        ≥80 |       ≥120 |       ≥250 |       ≥500 |
+|----------|-----------:|-----------:|-----------:|-----------:|-----------:|-----------:|-----------:|
+| VDSR     |     0.9329 |     0.9307 |     0.9307 |     0.9290 |     0.9290 |     0.9265 |     0.9090 |
+| EDSR     |     0.9326 |     0.9326 | **0.9326** |     0.9278 |     0.9274 |     0.9244 |     0.9213 |
+| IMDN     |     0.9320 |     0.9320 |     0.9307 |     0.9293 |     0.9277 |     0.9190 |        --- |
+| RFDN     | **0.9340** | **0.9327** |     0.9311 |     0.9304 |     0.9259 |     0.9183 |     0.9114 |
+| FastEDSR |     0.9333 |     0.9320 |     0.9320 | **0.9320** |     0.9296 | **0.9296** |     0.9259 |
+| ABPN     |     0.9319 |     0.9319 |     0.9301 |     0.9301 | **0.9301** |     0.9278 | **0.9262** |
 
 Najbolji LPIPS ↓ uz zadati minimalni FPS (480p):
 
-| FPS      |   ≥20 |   ≥30 |   ≥60 |   ≥80 |  ≥120 |  ≥250 |  ≥500 |
-|----------|------:|------:|------:|------:|------:|------:|------:|
-| VDSR     | 0.093 | 0.099 | 0.101 | 0.102 | 0.102 | 0.105 | 0.161 |
-| EDSR     | 0.098 | 0.098 | 0.098 | 0.106 | 0.106 | 0.114 | 0.122 |
-| IMDN     | 0.097 | 0.097 | 0.099 | 0.103 | 0.103 | 0.131 |   --- |
-| RFDN     | 0.094 | 0.096 | 0.099 | 0.099 | 0.108 | 0.133 | 0.137 |
-| FastEDSR | **0.091** | 0.098 | **0.098** | **0.098** | 0.101 | 0.101 | 0.108 |
-| ABPN     | 0.096 | **0.096** | 0.100 | 0.100 | **0.100** | **0.101** | **0.104** |
+| FPS      |       ≥20 |       ≥30 |       ≥60 |       ≥80 |      ≥120 |      ≥250 |      ≥500 |
+|----------|----------:|----------:|----------:|----------:|----------:|----------:|----------:|
+| VDSR     |     0.093 |     0.099 |     0.101 |     0.102 |     0.102 |     0.105 |     0.161 |
+| EDSR     |     0.098 |     0.098 |     0.098 |     0.106 |     0.106 |     0.114 |     0.122 |
+| IMDN     |     0.097 |     0.097 |     0.099 |     0.103 |     0.103 |     0.131 |       --- |
+| RFDN     |     0.094 |     0.096 |     0.099 |     0.099 |     0.108 |     0.133 |     0.137 |
+| FastEDSR | **0.091** |     0.098 | **0.098** | **0.098** |     0.101 |     0.101 |     0.108 |
+| ABPN     |     0.096 | **0.096** |     0.100 |     0.100 | **0.100** | **0.101** | **0.104** |
 
 - **Kvalitet se sporo menja sa zahtevom za brzinom.** Uz ≥30 FPS najbolji SSIM je 0.9327, uz ≥250 FPS 0.9296 -
   osam puta veća brzina košta 0.0031 SSIM, manje od desetine prednosti nad bicubic-om.
-- **IMDN i RFDN ne zadržavaju kvalitet pri većim brzinama.** Prate EDSR do ~200 FPS, a zatim naglo padaju
-  (uz ≥250 FPS SSIM ~0.919 naspram 0.9296 kod FastEDSR-a); IMDN ne dostiže 500 FPS. VDSR je bolji od EDSR-a između
+- **IMDN i RFDN ne zadržavaju kvalitet pri većim brzinama.** Prate EDSR do ~200 FPS, a zatim naglo padaju (uz ≥250 FPS
+  SSIM ~0.919 naspram 0.9296 kod FastEDSR-a); IMDN ne dostiže 500 FPS. VDSR je bolji od EDSR-a između
   ~80 i 300 FPS, ali iznad toga naglo gubi kvalitet.
 - **Uz ≥80 FPS najbolji rezultat po svim metrikama daju isključivo ABPN i FastEDSR**, koji su međusobno praktično
   izjednačeni.
@@ -233,16 +322,16 @@ potreban faktor zavisi od rezolucije videa i ekrana.
 ## Superrezolucija JPEG-kompresovanih slika
 
 Deo modela je treniran sa dodatnom JPEG kompresijom LR ulaza (kvalitet nasumično 20-95), dok HR ostaje isti
-(`jpeg_degradation: true`). Arhitektura se ne menja. Evaluacija je na DIV2K sa JPEG-kompresovanim LR slikama
-(kvalitet 20-100), ×2:
+(`jpeg_degradation: true`). Arhitektura se ne menja. Evaluacija je na DIV2K sa JPEG-kompresovanim LR slikama (kvalitet
+20-100), ×2:
 
-| Model          | PSNR bazni | PSNR jpeg | SSIM bazni | SSIM jpeg | LPIPS bazni | LPIPS jpeg |
-|----------------|-----------:|----------:|-----------:|----------:|------------:|-----------:|
-| FastEDSR 4/32  |     28.382 | **29.108** |     0.804 | **0.826** |   **0.268** |      0.280 |
-| FastEDSR 4/64  |     28.375 | **29.332** |     0.804 | **0.832** |   **0.262** |      0.273 |
-| FastEDSR 4/128 |     28.388 | **29.543** |     0.804 | **0.837** |   **0.265** |      0.267 |
-| FastEDSR 4/256 |     28.405 | **29.635** |     0.805 | **0.839** |       0.270 |  **0.263** |
-| RFDN 2/128     |     28.366 | **29.408** |     0.804 | **0.842** |       0.265 |  **0.255** |
+| Model          | PSNR bazni |  PSNR jpeg | SSIM bazni | SSIM jpeg | LPIPS bazni | LPIPS jpeg |
+|----------------|-----------:|-----------:|-----------:|----------:|------------:|-----------:|
+| FastEDSR 4/32  |     28.382 | **29.108** |      0.804 | **0.826** |   **0.268** |      0.280 |
+| FastEDSR 4/64  |     28.375 | **29.332** |      0.804 | **0.832** |   **0.262** |      0.273 |
+| FastEDSR 4/128 |     28.388 | **29.543** |      0.804 | **0.837** |   **0.265** |      0.267 |
+| FastEDSR 4/256 |     28.405 | **29.635** |      0.805 | **0.839** |       0.270 |  **0.263** |
+| RFDN 2/128     |     28.366 | **29.408** |      0.804 | **0.842** |       0.265 |  **0.255** |
 
 PSNR raste u proseku za 1.02 dB, SSIM za ~0.031, ali LPIPS se blago pogoršava - izlazi su vidljivo zamućeni, jer
 model pri uklanjanju artefakata potiskuje i deo detalja.
@@ -313,12 +402,12 @@ Cela video grana ostaje na grafičkoj kartici:
 
 Faze obrade frejma, FastEDSR 4/128, 480p:
 
-| Faza      | Osnovna | Zero-copy |
-|-----------|--------:|----------:|
-| dekodiranje | 0.78 ms | 0.48 ms |
-| sr (+ prenosi) | 11.93 ms | 10.56 ms |
-| prikaz (skaliranje + prikaz) | 4.97 ms | 0.67 ms |
-| **ukupno** | **17.68 ms** | **11.57 ms** |
+| Faza                         |      Osnovna |    Zero-copy |
+|------------------------------|-------------:|-------------:|
+| dekodiranje                  |      0.78 ms |      0.48 ms |
+| sr (+ prenosi)               |     11.93 ms |     10.56 ms |
+| prikaz (skaliranje + prikaz) |      4.97 ms |      0.67 ms |
+| **ukupno**                   | **17.68 ms** | **11.57 ms** |
 
 Zero-copy varijanta uvodi isti model u budžet od 16.7 ms za 60 FPS. Dobitak je relativno najveći kod malih modela,
 kod kojih inferencija čini manji deo ukupnog vremena.
@@ -375,20 +464,8 @@ Generatori: `scripts/glsl/` (vidi [Pokretanje](#mpv-šejderi)).
 
 ### Instalacija
 
-Python 3.12, PyTorch sa CUDA 13:
-
-```bash
-pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu130
-```
-
-`requirements.txt` sadrži i pakete za plejer (TensorRT, torch-tensorrt, ncnn, PyNvVideoCodec, PyAV, GLFW, PyOpenGL,
-cuda-python). ONNX Runtime se instalira posebno:
-
-```bash
-pip install onnxruntime-gpu        # cuda, tensorrt
-pip install onnxruntime-directml   # directml
-pip install onnxruntime            # cpu
-```
+Videti [Brzi početak](#brzi-početak): zavisnosti se biraju po nameni iz `requirements/`, a `requirements.txt`
+instalira sve za NVIDIA računar.
 
 Datasetovi se čuvaju u `data/`, ili na lokaciji iz `config/data.yaml` (`path: D:\datasets\super-resolution`).
 Podržani test skupovi: DIV2K, Set5, Set14, BSD100, Urban100.
@@ -425,12 +502,12 @@ models:
     params: { upscale_factor: 2, num_blocks: 4, nf: 32 }
 ```
 
-| Fajl                                                          | Namena                                     |
-|---------------------------------------------------------------|--------------------------------------------|
-| `training_2x.yaml`, `training_3x.yaml`, `training_4x.yaml`     | modeli za jedan faktor                     |
-| `training_2x_ABPN.yaml`, `training_2x_VDSR.yaml`               | ABPN / VDSR konfiguracije                  |
-| `training_multiscale.yaml`                                    | višeskalni modeli                          |
-| `training_multi_jpeg.yaml`, `training_multi_jpeg_ABPN.yaml`    | višeskalni + JPEG degradacija              |
+| Fajl                                                        | Namena                        |
+|-------------------------------------------------------------|-------------------------------|
+| `training_2x.yaml`, `training_3x.yaml`, `training_4x.yaml`  | modeli za jedan faktor        |
+| `training_2x_ABPN.yaml`, `training_2x_VDSR.yaml`            | ABPN / VDSR konfiguracije     |
+| `training_multiscale.yaml`                                  | višeskalni modeli             |
+| `training_multi_jpeg.yaml`, `training_multi_jpeg_ABPN.yaml` | višeskalni + JPEG degradacija |
 
 Checkpoint-i se čuvaju u `checkpoints/{1x,2x,3x,4x,multiscale}/`, logovi i grafici treniranja u `logs/`.
 
@@ -454,16 +531,19 @@ Podešavanja su konstante na vrhu svake skripte.
 ### Video plejer
 
 ```bash
-python videoplayer/run.py
+python videoplayer_gui.py      # GUI za izbor modela, runtime-a i videa
+python videoplayer/run.py      # bez GUI-ja
 ```
 
-Model, video, runtime, dekoder i prikaz se biraju konstantama na vrhu `run.py`:
+`videoplayer/run.py` bez argumenata koristi konstante na vrhu fajla, a sve se može zadati i iz komandne linije
+(`--video`, `--model`, `--runtime`, `--decoder`, `--display`, `--scales`, `--no-audio`, `--windowed`).
+Podržane kombinacije:
 
-| Runtime                                            | Dekoder          | Prikaz | Plejer                | Varijanta |
-|----------------------------------------------------|------------------|--------|-----------------------|-----------|
-| tensorrt, tensorrt-pt2, ncnn-vulkan, onnxruntime-* | pyav, cv2        | cv2    | `VideoPlayerCV2`      | osnovna   |
-| tensorrt                                           | nvdec            | cv2    | `VideoPlayerNvdecCV2` | NVDEC + CPU prikaz |
-| tensorrt                                           | nvdec            | opengl | `VideoPlayerNvdecGL`  | zero-copy |
+| Runtime                                            | Dekoder          | Prikaz | Plejer                | Varijanta                               |
+|----------------------------------------------------|------------------|--------|-----------------------|-----------------------------------------|
+| tensorrt, tensorrt-pt2, ncnn-vulkan, onnxruntime-* | pyav, cv2        | cv2    | `VideoPlayerCV2`      | osnovna                                 |
+| tensorrt                                           | nvdec            | cv2    | `VideoPlayerNvdecCV2` | NVDEC + CPU prikaz                      |
+| tensorrt                                           | nvdec            | opengl | `VideoPlayerNvdecGL`  | zero-copy                               |
 | opengl                                             | nvdec, pyav, cv2 | opengl | `VideoPlayerGL`       | GLSL šejderi (samo `SR_FastEDSR_Multi`) |
 
 - `tensorrt-pt2` je torch-tensorrt `.pt2` putanja, za velike modele kod kojih izgradnja engine-a ostane bez memorije.
@@ -499,10 +579,12 @@ inference/     slike za inference i comparison skripte
 logs/          logovi i grafici treniranja i evaluacije
 loss/          gubitak za GAN trening
 models/        implementacije modela i MODEL_REGISTRY
+requirements/  zavisnosti po nameni (vidi Brzi početak)
 results/       CSV rezultati, analysis/ (grafici, LaTeX tabele), comparisons/
 scripts/       training, evaluation, inference, analysis, glsl
 tex/           LaTeX izvor rada
 utils/         trainer/evaluator klase, metrike, checkpoint i pomoćne funkcije
 videoinput/    test video snimci
 videoplayer/   plejer: players/, decode/, backends/, eval/, run.py
+videoplayer_gui.py  GUI za pokretanje plejera
 ```

@@ -1,0 +1,4 @@
+# Runtimes "onnxruntime-cuda" / "onnxruntime-tensorrt" / "onnxruntime-cpu" (NVIDIA).
+# The onnxruntime-* packages share one module: install only one rt-onnxruntime-*.txt per venv.
+-r player.txt
+onnxruntime-gpu==1.30.0
